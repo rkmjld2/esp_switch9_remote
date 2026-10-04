@@ -1,9 +1,12 @@
+```php
 <?php
 /*
 ========================================================
 ESP-SWITCH7
 display_schedule.php
 ========================================================
+
+DISPLAY VERSION
 
 OWNER DEACTIVATION HAS PRIORITY
 
@@ -206,9 +209,7 @@ function check_status(
 ) {
 
     /*
-    ----------------------------------------------------
     OWNER DEACTIVATION HAS FIRST PRIORITY
-    ----------------------------------------------------
     */
 
     if (intval($owner_deactivated) == 1) {
@@ -219,9 +220,7 @@ function check_status(
 
 
     /*
-    ----------------------------------------------------
     USER PERIOD DEACTIVATED
-    ----------------------------------------------------
     */
 
     if (intval($period_active) != 1) {
@@ -232,9 +231,7 @@ function check_status(
 
 
     /*
-    ----------------------------------------------------
     DATE/TIME NOT SET
-    ----------------------------------------------------
     */
 
     if (
@@ -257,17 +254,13 @@ function check_status(
 
 
     /*
-    ----------------------------------------------------
     CURRENT TIME INSIDE PERIOD
-    ----------------------------------------------------
     */
 
     if (
-        $current_timestamp >=
-        $start_timestamp
+        $current_timestamp >= $start_timestamp
         &&
-        $current_timestamp <=
-        $end_timestamp
+        $current_timestamp <= $end_timestamp
     ) {
 
         return "ACTIVE";
@@ -286,9 +279,7 @@ function check_status(
 function display_datetime($value)
 {
 
-    if (
-        empty($value)
-    ) {
+    if (empty($value)) {
 
         return "--";
 
@@ -309,9 +300,7 @@ function display_datetime($value)
 function get_pins($value)
 {
 
-    if (
-        empty($value)
-    ) {
+    if (empty($value)) {
 
         return array();
 
@@ -319,10 +308,7 @@ function get_pins($value)
 
 
     $parts =
-        explode(
-            ",",
-            $value
-        );
+        explode(",", $value);
 
 
     $pins =
@@ -413,9 +399,7 @@ for ($p = 1; $p <= 3; $p++) {
 
 
     /*
-    ----------------------------------------------------
     OUTPUT IS ON ONLY WHEN STATUS = ACTIVE
-    ----------------------------------------------------
     */
 
     $output_on =
@@ -461,11 +445,16 @@ for ($p = 1; $p <= 3; $p++) {
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
-
 <title>
 ESP-SWITCH7 Schedule Display
 </title>
 
+
+<!--
+========================================================
+AUTO REFRESH
+========================================================
+-->
 
 <meta http-equiv="refresh"
       content="60">
@@ -473,239 +462,516 @@ ESP-SWITCH7 Schedule Display
 
 <style>
 
+/* =====================================================
+   GENERAL PAGE
+   ===================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+
 body {
-
-    font-family: Arial, sans-serif;
-
-    background: #f2f2f2;
 
     margin: 0;
 
-    padding: 15px;
+    padding: 20px;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background:
+        linear-gradient(
+            135deg,
+            #eef5ff,
+            #f8fbff
+        );
+
+    color: #222;
 
 }
 
 
-h1 {
+/* =====================================================
+   MAIN CONTAINER
+   ===================================================== */
 
-    text-align: center;
+.main-container {
 
-    margin-bottom: 5px;
+    max-width: 1000px;
+
+    margin: auto;
 
 }
 
 
-.controller {
+/* =====================================================
+   HEADER
+   ===================================================== */
+
+.header {
+
+    background:
+        linear-gradient(
+            135deg,
+            #0d6efd,
+            #174ea6
+        );
+
+    color: white;
+
+    padding: 25px 20px;
+
+    border-radius: 18px;
 
     text-align: center;
+
+    box-shadow:
+        0 8px 20px
+        rgba(0,0,0,0.15);
+
+    margin-bottom: 18px;
+
+}
+
+
+.header h1 {
+
+    margin: 0;
+
+    font-size: 32px;
+
+    letter-spacing: 1px;
+
+}
+
+
+.header .controller {
+
+    margin-top: 8px;
 
     font-size: 20px;
 
     font-weight: bold;
 
-    margin-bottom: 10px;
-
 }
 
 
-.current {
+/* =====================================================
+   CURRENT TIME CARD
+   ===================================================== */
 
-    text-align: center;
+.current-card {
 
     background: white;
 
-    padding: 15px;
+    border-radius: 16px;
 
-    border-radius: 8px;
+    padding: 18px;
+
+    text-align: center;
+
+    box-shadow:
+        0 5px 15px
+        rgba(0,0,0,0.10);
 
     margin-bottom: 20px;
 
-    box-shadow:
-        0 2px 6px
-        rgba(0,0,0,0.15);
+}
+
+
+.current-label {
+
+    font-size: 15px;
+
+    color: #666;
 
 }
 
+
+.current-time {
+
+    font-size: 28px;
+
+    font-weight: bold;
+
+    color: #0d6efd;
+
+    margin: 5px 0;
+
+}
+
+
+.current-day {
+
+    display: inline-block;
+
+    background: #e7f1ff;
+
+    color: #0d6efd;
+
+    padding: 7px 16px;
+
+    border-radius: 20px;
+
+    font-weight: bold;
+
+    margin-top: 5px;
+
+}
+
+
+/* =====================================================
+   PERIOD CONTAINER
+   ===================================================== */
 
 .period-container {
 
-    display: flex;
+    display: grid;
 
-    flex-direction: column;
+    grid-template-columns:
+        repeat(
+            3,
+            1fr
+        );
 
-    gap: 20px;
+    gap: 18px;
 
 }
 
+
+/* =====================================================
+   PERIOD CARD
+   ===================================================== */
 
 .period-box {
 
     background: white;
 
-    border-radius: 12px;
+    border-radius: 18px;
 
     padding: 20px;
 
     box-shadow:
-        0 3px 8px
-        rgba(0,0,0,0.18);
+        0 6px 18px
+        rgba(0,0,0,0.12);
 
-    cursor: pointer;
+    position: relative;
+
+    overflow: hidden;
+
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s;
 
 }
 
 
+.period-box:hover {
+
+    transform:
+        translateY(-3px);
+
+    box-shadow:
+        0 10px 25px
+        rgba(0,0,0,0.16);
+
+}
+
+
+/* =====================================================
+   TOP COLOR STRIP
+   ===================================================== */
+
 .period-box.active {
 
-    border: 5px solid #28a745;
+    border-top:
+        7px solid #198754;
 
 }
 
 
 .period-box.inactive {
 
-    border: 5px solid #777;
+    border-top:
+        7px solid #6c757d;
 
 }
 
 
 .period-box.deactivated {
 
-    border: 5px solid #dc3545;
+    border-top:
+        7px solid #dc3545;
 
 }
 
 
 .period-box.owner-deactivated {
 
-    border: 5px solid #8b0000;
+    border-top:
+        7px solid #8b0000;
 
-    background: #fff1f1;
+    background:
+        #fff8f8;
 
 }
 
+
+/* =====================================================
+   PERIOD TITLE
+   ===================================================== */
 
 .period-title {
 
-    font-size: 26px;
+    font-size: 24px;
 
     font-weight: bold;
 
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 
 }
 
 
-.status {
+.active .period-title {
 
-    font-size: 22px;
-
-    font-weight: bold;
-
-    margin: 10px 0;
+    color: #198754;
 
 }
 
 
-.status-active {
-
-    color: #28a745;
-
-}
-
-
-.status-inactive {
+.inactive .period-title {
 
     color: #555;
 
 }
 
 
-.status-deactivated {
+.deactivated .period-title {
 
     color: #dc3545;
 
 }
 
 
-.status-owner {
+.owner-deactivated .period-title {
 
     color: #8b0000;
 
 }
 
 
-.time {
+/* =====================================================
+   STATUS BADGE
+   ===================================================== */
 
-    font-size: 18px;
+.status {
 
-    margin-bottom: 8px;
+    display: inline-block;
+
+    padding: 8px 14px;
+
+    border-radius: 20px;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    margin: 10px 0 15px 0;
 
 }
 
 
-.output {
+.status-active {
 
-    font-size: 20px;
+    background: #d1e7dd;
+
+    color: #0f5132;
+
+}
+
+
+.status-inactive {
+
+    background: #e9ecef;
+
+    color: #495057;
+
+}
+
+
+.status-deactivated {
+
+    background: #f8d7da;
+
+    color: #842029;
+
+}
+
+
+.status-owner {
+
+    background: #f5c2c7;
+
+    color: #721c24;
+
+}
+
+
+/* =====================================================
+   DATE / TIME
+   ===================================================== */
+
+.time-box {
+
+    background: #f8f9fa;
+
+    border-radius: 10px;
+
+    padding: 12px;
+
+    font-size: 15px;
+
+    line-height: 1.8;
+
+    margin-bottom: 12px;
+
+}
+
+
+.time-box strong {
+
+    color: #495057;
+
+}
+
+
+/* =====================================================
+   OUTPUT
+   ===================================================== */
+
+.output-box {
+
+    text-align: center;
+
+    padding: 12px;
+
+    border-radius: 12px;
+
+    font-size: 21px;
 
     font-weight: bold;
 
-    margin-top: 15px;
+    margin-top: 12px;
+
+}
+
+
+.output-on {
+
+    background: #d1e7dd;
+
+    color: #0f5132;
+
+}
+
+
+.output-off {
+
+    background: #e9ecef;
+
+    color: #495057;
+
+}
+
+
+/* =====================================================
+   PIN SECTION
+   ===================================================== */
+
+.pin-title {
+
+    margin-top: 18px;
+
+    margin-bottom: 8px;
+
+    font-size: 15px;
+
+    font-weight: bold;
+
+    color: #555;
 
 }
 
 
 .pins {
 
-    display: flex;
+    display: grid;
 
-    flex-wrap: wrap;
+    grid-template-columns:
+        repeat(
+            4,
+            1fr
+        );
 
-    gap: 8px;
-
-    margin-top: 15px;
+    gap: 7px;
 
 }
 
 
 .pin {
 
-    width: 55px;
+    min-height: 48px;
 
-    height: 45px;
+    border-radius: 9px;
 
     display: flex;
+
+    flex-direction: column;
 
     align-items: center;
 
     justify-content: center;
 
-    border-radius: 7px;
-
-    background: #777;
-
-    color: white;
-
     font-weight: bold;
 
-    font-size: 17px;
+    font-size: 13px;
+
+    background: #e9ecef;
+
+    color: #6c757d;
+
+    border:
+        1px solid #ced4da;
 
 }
 
 
 .pin.on {
 
-    background: #28a745;
+    background: #198754;
+
+    color: white;
+
+    border-color: #146c43;
 
 }
 
 
 .pin.off {
 
-    background: #777;
+    background: #f1f3f5;
+
+    color: #adb5bd;
 
 }
 
+
+/* =====================================================
+   MESSAGES
+   ===================================================== */
 
 .owner-message {
 
@@ -715,9 +981,13 @@ h1 {
 
     background: #f8d7da;
 
-    color: #721c24;
+    color: #842029;
 
-    border-radius: 6px;
+    border-radius: 10px;
+
+    font-size: 14px;
+
+    line-height: 1.5;
 
     font-weight: bold;
 
@@ -732,11 +1002,101 @@ h1 {
 
     background: #fff3cd;
 
-    color: #856404;
+    color: #664d03;
 
-    border-radius: 6px;
+    border-radius: 10px;
+
+    font-size: 14px;
+
+    line-height: 1.5;
 
     font-weight: bold;
+
+}
+
+
+/* =====================================================
+   FOOTER
+   ===================================================== */
+
+.footer {
+
+    text-align: center;
+
+    margin-top: 22px;
+
+    color: #777;
+
+    font-size: 13px;
+
+}
+
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (
+    max-width: 800px
+) {
+
+    body {
+
+        padding: 12px;
+
+    }
+
+
+    .header h1 {
+
+        font-size: 27px;
+
+    }
+
+
+    .period-container {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+
+    .current-time {
+
+        font-size: 23px;
+
+    }
+
+}
+
+
+/* =====================================================
+   SMALL MOBILE
+   ===================================================== */
+
+@media (
+    max-width: 400px
+) {
+
+    .pins {
+
+        grid-template-columns:
+            repeat(
+                4,
+                1fr
+            );
+
+    }
+
+
+    .pin {
+
+        min-height: 43px;
+
+        font-size: 12px;
+
+    }
 
 }
 
@@ -747,23 +1107,9 @@ h1 {
 
 /*
 ========================================================
-AUTO REFRESH
-========================================================
-
-The page reloads every second so that the display
-changes automatically when a schedule becomes active
-or inactive.
-
+PERIOD INFORMATION
 ========================================================
 */
-
-setTimeout(
-    function () {
-        location.reload();
-    },
-    1000
-);
-
 
 function showPeriod(
     period,
@@ -786,6 +1132,7 @@ function showPeriod(
         );
 
         return;
+
     }
 
 
@@ -804,6 +1151,7 @@ function showPeriod(
         );
 
         return;
+
     }
 
 
@@ -823,6 +1171,7 @@ function showPeriod(
         );
 
         return;
+
     }
 
 
@@ -834,16 +1183,25 @@ function showPeriod(
         "\n\n" +
         "Output: OFF"
     );
+
 }
 
 </script>
-
 
 </head>
 
 
 <body>
 
+
+<div class="main-container">
+
+
+<!-- ==================================================
+     HEADER
+     ================================================== -->
+
+<div class="header">
 
 <h1>
 ESP-SWITCH7
@@ -863,14 +1221,23 @@ echo htmlspecialchars(
 
 </div>
 
+</div>
 
-<div class="current">
 
-<strong>
-Current India Time:
-</strong>
+<!-- ==================================================
+     CURRENT TIME
+     ================================================== -->
 
-<br>
+<div class="current-card">
+
+<div class="current-label">
+
+CURRENT INDIA TIME
+
+</div>
+
+
+<div class="current-time">
 
 <?php
 
@@ -880,13 +1247,10 @@ echo date(
 
 ?>
 
+</div>
 
-<br><br>
 
-
-<strong>
-Today:
-</strong>
+<div class="current-day">
 
 <?php
 
@@ -898,18 +1262,24 @@ echo htmlspecialchars(
 
 </div>
 
+</div>
+
+
+<!-- ==================================================
+     PERIODS
+     ================================================== -->
 
 <div class="period-container">
 
 
-<?php for (
+<?php
+
+for (
     $p = 1;
     $p <= 3;
     $p++
-): ?>
+):
 
-
-<?php
 
 $period =
     $periods[$p];
@@ -930,6 +1300,12 @@ $pin_text =
     );
 
 
+/*
+--------------------------------------------------------
+CARD CLASS
+--------------------------------------------------------
+*/
+
 if (
     $status ===
     "ACTIVE"
@@ -938,7 +1314,8 @@ if (
     $box_class =
         "active";
 
-} elseif (
+}
+elseif (
     $status ===
     "OWNER DEACTIVATED"
 ) {
@@ -946,7 +1323,8 @@ if (
     $box_class =
         "owner-deactivated";
 
-} elseif (
+}
+elseif (
     $status ===
     "DEACTIVATED"
 ) {
@@ -954,34 +1332,53 @@ if (
     $box_class =
         "deactivated";
 
-} else {
+}
+else {
 
     $box_class =
         "inactive";
 
 }
 
-
 ?>
 
 
-<div class="period-box <?php echo $box_class; ?>"
-     onclick="showPeriod(
+<div
+    class="period-box <?php echo $box_class; ?>"
+    onclick="showPeriod(
         <?php echo $p; ?>,
-        '<?php echo htmlspecialchars($status, ENT_QUOTES); ?>',
-        '<?php echo htmlspecialchars($pin_text, ENT_QUOTES); ?>'
-     )">
+        '<?php
+        echo htmlspecialchars(
+            $status,
+            ENT_QUOTES
+        );
+        ?>',
+        '<?php
+        echo htmlspecialchars(
+            $pin_text,
+            ENT_QUOTES
+        );
+        ?>'
+    )"
+>
 
+
+<!-- ==================================================
+     PERIOD TITLE
+     ================================================== -->
 
 <div class="period-title">
 
-Period
-<?php echo $p; ?>
+Period <?php echo $p; ?>
 
 </div>
 
 
-<div class="time">
+<!-- ==================================================
+     DATE / TIME
+     ================================================== -->
+
+<div class="time-box">
 
 <strong>
 Start:
@@ -994,6 +1391,7 @@ echo display_datetime(
 );
 
 ?>
+
 
 <br>
 
@@ -1013,11 +1411,18 @@ echo display_datetime(
 </div>
 
 
-<?php if (
+<!-- ==================================================
+     STATUS
+     ================================================== -->
+
+<?php
+
+if (
     $status ===
     "ACTIVE"
-): ?>
+):
 
+?>
 
 <div class="status status-active">
 
@@ -1025,12 +1430,14 @@ echo display_datetime(
 
 </div>
 
+<?php
 
-<?php elseif (
+elseif (
     $status ===
     "OWNER DEACTIVATED"
-): ?>
+):
 
+?>
 
 <div class="status status-owner">
 
@@ -1038,12 +1445,14 @@ echo display_datetime(
 
 </div>
 
+<?php
 
-<?php elseif (
+elseif (
     $status ===
     "DEACTIVATED"
-): ?>
+):
 
+?>
 
 <div class="status status-deactivated">
 
@@ -1051,9 +1460,11 @@ echo display_datetime(
 
 </div>
 
+<?php
 
-<?php else: ?>
+else:
 
+?>
 
 <div class="status status-inactive">
 
@@ -1061,15 +1472,25 @@ echo display_datetime(
 
 </div>
 
+<?php
 
-<?php endif; ?>
+endif;
+
+?>
 
 
-<?php if (
+<!-- ==================================================
+     OWNER MESSAGE
+     ================================================== -->
+
+<?php
+
+if (
     $status ===
     "OWNER DEACTIVATED"
-): ?>
+):
 
+?>
 
 <div class="owner-message">
 
@@ -1081,12 +1502,14 @@ ALL OUTPUTS ARE OFF.
 
 </div>
 
+<?php
 
-<?php elseif (
+elseif (
     $status ===
     "DEACTIVATED"
-): ?>
+):
 
+?>
 
 <div class="user-message">
 
@@ -1098,13 +1521,16 @@ ALL OUTPUTS ARE OFF.
 
 </div>
 
+<?php
 
-<?php endif; ?>
+endif;
+
+?>
 
 
-<div class="output">
-
-Output:
+<!-- ==================================================
+     OUTPUT
+     ================================================== -->
 
 <?php
 
@@ -1113,30 +1539,59 @@ if (
     "ACTIVE"
 ) {
 
-    echo "ON";
+    $output_class =
+        "output-on";
 
-} else {
+    $output_text =
+        "● OUTPUT ON";
 
-    echo "OFF";
+}
+else {
+
+    $output_class =
+        "output-off";
+
+    $output_text =
+        "● OUTPUT OFF";
 
 }
 
 ?>
 
+
+<div class="output-box <?php echo $output_class; ?>">
+
+<?php echo $output_text; ?>
+
 </div>
 
+
+<!-- ==================================================
+     PIN TITLE
+     ================================================== -->
+
+<div class="pin-title">
+
+D1 – D8 OUTPUT STATUS
+
+</div>
+
+
+<!-- ==================================================
+     PINS
+     ================================================== -->
 
 <div class="pins">
 
 
-<?php for (
+<?php
+
+for (
     $d = 1;
     $d <= 8;
     $d++
-): ?>
+):
 
-
-<?php
 
 $pin_name =
     "D" . $d;
@@ -1153,7 +1608,6 @@ $is_on =
         )
     );
 
-
 ?>
 
 
@@ -1165,12 +1619,13 @@ echo $is_on
 
 ?>">
 
+<span>
 
 <?php echo $pin_name; ?>
 
+</span>
 
-<br>
-
+<span>
 
 <?php
 
@@ -1180,11 +1635,16 @@ echo $is_on
 
 ?>
 
+</span>
 
 </div>
 
 
-<?php endfor; ?>
+<?php
+
+endfor;
+
+?>
 
 
 </div>
@@ -1193,13 +1653,34 @@ echo $is_on
 </div>
 
 
-<?php endfor; ?>
+<?php
+
+endfor;
+
+?>
+
+
+</div>
+
+
+<!-- ==================================================
+     FOOTER
+     ================================================== -->
+
+<div class="footer">
+
+ESP-SWITCH7 &nbsp; | &nbsp;
+Automatic schedule display &nbsp; | &nbsp;
+India Standard Time (IST)
+
+</div>
 
 
 </div>
 
 
 </body>
+
 
 </html>
 
@@ -1209,3 +1690,4 @@ echo $is_on
 mysqli_close($conn);
 
 ?>
+```
