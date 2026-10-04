@@ -1,0 +1,21 @@
+RewriteEngine On
+
+# Allow existing files to open normally
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Allow existing directories to open normally
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# QR page
+RewriteRule ^qr/?$ qr.php [L]
+
+# Schedule page
+RewriteRule ^schedule/?$ schedule.php [L]
+
+# Display schedule page
+RewriteRule ^display-schedule/?$ display_schedule.php [L]
+
+# Schedule API
+RewriteRule ^schedule-api/?$ schedule_api.php [L]
