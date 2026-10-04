@@ -1,4 +1,3 @@
-```php
 <?php
 /*
 ========================================================
@@ -6,33 +5,14 @@ ESP-SWITCH7
 display_schedule.php
 ========================================================
 
-DISPLAY VERSION
-
 OWNER DEACTIVATION HAS PRIORITY
 
-Database table:
-weekly_schedule
+IMPORTANT:
+The displayed India clock is updated by JavaScript
+every 1 second.
 
-Fields:
-period_active_1
-period_active_2
-period_active_3
-
-owner_deactivated_1
-owner_deactivated_2
-owner_deactivated_3
-
-RULE:
-
-owner_deactivated = 1
-        |
-        V
-OWNER DEACTIVATED
-        |
-        V
-OUTPUT OFF
-
-Even if period_active = 1.
+The PHP server time is used for schedule/status
+calculation.
 
 ========================================================
 */
@@ -398,10 +378,6 @@ for ($p = 1; $p <= 3; $p++) {
         );
 
 
-    /*
-    OUTPUT IS ON ONLY WHEN STATUS = ACTIVE
-    */
-
     $output_on =
         ($status === "ACTIVE");
 
@@ -445,16 +421,22 @@ for ($p = 1; $p <= 3; $p++) {
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
+
 <title>
 ESP-SWITCH7 Schedule Display
 </title>
 
 
-<!--
-========================================================
-AUTO REFRESH
-========================================================
--->
+<!-- ==================================================
+     PAGE RELOAD
+     ==================================================
+
+     Reload every 60 seconds.
+
+     This is separate from the live clock.
+     The JavaScript clock changes every second.
+
+     ================================================== -->
 
 <meta http-equiv="refresh"
       content="60">
@@ -493,10 +475,6 @@ body {
 
 }
 
-
-/* =====================================================
-   MAIN CONTAINER
-   ===================================================== */
 
 .main-container {
 
@@ -624,7 +602,7 @@ body {
 
 
 /* =====================================================
-   PERIOD CONTAINER
+   PERIODS
    ===================================================== */
 
 .period-container {
@@ -632,19 +610,12 @@ body {
     display: grid;
 
     grid-template-columns:
-        repeat(
-            3,
-            1fr
-        );
+        repeat(3, 1fr);
 
     gap: 18px;
 
 }
 
-
-/* =====================================================
-   PERIOD CARD
-   ===================================================== */
 
 .period-box {
 
@@ -680,10 +651,6 @@ body {
 
 }
 
-
-/* =====================================================
-   TOP COLOR STRIP
-   ===================================================== */
 
 .period-box.active {
 
@@ -764,7 +731,7 @@ body {
 
 
 /* =====================================================
-   STATUS BADGE
+   STATUS
    ===================================================== */
 
 .status {
@@ -911,10 +878,7 @@ body {
     display: grid;
 
     grid-template-columns:
-        repeat(
-            4,
-            1fr
-        );
+        repeat(4, 1fr);
 
     gap: 7px;
 
@@ -1036,9 +1000,7 @@ body {
    MOBILE
    ===================================================== */
 
-@media (
-    max-width: 800px
-) {
+@media (max-width: 800px) {
 
     body {
 
@@ -1056,8 +1018,7 @@ body {
 
     .period-container {
 
-        grid-template-columns:
-            1fr;
+        grid-template-columns: 1fr;
 
     }
 
@@ -1070,46 +1031,201 @@ body {
 
 }
 
-
-/* =====================================================
-   SMALL MOBILE
-   ===================================================== */
-
-@media (
-    max-width: 400px
-) {
-
-    .pins {
-
-        grid-template-columns:
-            repeat(
-                4,
-                1fr
-            );
-
-    }
-
-
-    .pin {
-
-        min-height: 43px;
-
-        font-size: 12px;
-
-    }
-
-}
-
 </style>
 
 
 <script>
 
+/* =====================================================
+   LIVE INDIA CLOCK
+   =====================================================
+
+   This clock runs entirely in the browser.
+
+   It updates every 1 second.
+
+   India timezone:
+   UTC + 5:30
+
+   ===================================================== */
+
+
+function updateIndiaClock()
+{
+
+    /*
+    -----------------------------------------------------
+    Get current UTC time.
+    -----------------------------------------------------
+    */
+
+    const now =
+        new Date();
+
+
+    /*
+    -----------------------------------------------------
+    Convert to India Standard Time.
+
+    We use the browser's Intl formatter with the
+    Asia/Kolkata timezone.
+
+    -----------------------------------------------------
+    */
+
+    const indiaTime =
+        new Intl.DateTimeFormat(
+            "en-GB",
+            {
+                timeZone:
+                    "Asia/Kolkata",
+
+                day:
+                    "2-digit",
+
+                month:
+                    "2-digit",
+
+                year:
+                    "numeric",
+
+                hour:
+                    "2-digit",
+
+                minute:
+                    "2-digit",
+
+                second:
+                    "2-digit",
+
+                hour12:
+                    false
+            }
+        ).formatToParts(now);
+
+
+    /*
+    -----------------------------------------------------
+    Create an object containing each time part.
+    -----------------------------------------------------
+    */
+
+    let parts = {};
+
+
+    indiaTime.forEach(
+        function(part)
+        {
+
+            parts[part.type] =
+                part.value;
+
+        }
+    );
+
+
+    /*
+    -----------------------------------------------------
+    Create:
+
+    DD-MM-YYYY HH:MM:SS
+
+    -----------------------------------------------------
+    */
+
+    const formattedTime =
+        parts.day +
+        "-" +
+        parts.month +
+        "-" +
+        parts.year +
+        " " +
+        parts.hour +
+        ":" +
+        parts.minute +
+        ":" +
+        parts.second;
+
+
+    /*
+    -----------------------------------------------------
+    Display the live time.
+    -----------------------------------------------------
+    */
+
+    const clock =
+        document.getElementById(
+            "india-clock"
+        );
+
+
+    if (clock) {
+
+        clock.textContent =
+            formattedTime;
+
+    }
+
+
+    /*
+    -----------------------------------------------------
+    Display current day.
+    -----------------------------------------------------
+    */
+
+    const day =
+        new Intl.DateTimeFormat(
+            "en-IN",
+            {
+                timeZone:
+                    "Asia/Kolkata",
+
+                weekday:
+                    "long"
+            }
+        ).format(now);
+
+
+    const dayElement =
+        document.getElementById(
+            "india-day"
+        );
+
+
+    if (dayElement) {
+
+        dayElement.textContent =
+            day;
+
+    }
+
+}
+
+
 /*
 ========================================================
-PERIOD INFORMATION
+START CLOCK IMMEDIATELY
 ========================================================
 */
+
+updateIndiaClock();
+
+
+/*
+========================================================
+UPDATE CLOCK EVERY ONE SECOND
+========================================================
+*/
+
+setInterval(
+    updateIndiaClock,
+    1000
+);
+
+
+/* =====================================================
+   PERIOD INFORMATION
+   ===================================================== */
 
 function showPeriod(
     period,
@@ -1237,7 +1353,16 @@ CURRENT INDIA TIME
 </div>
 
 
-<div class="current-time">
+<!--
+========================================================
+THIS VALUE IS UPDATED BY JAVASCRIPT EVERY SECOND
+========================================================
+-->
+
+<div
+    class="current-time"
+    id="india-clock"
+>
 
 <?php
 
@@ -1250,7 +1375,10 @@ echo date(
 </div>
 
 
-<div class="current-day">
+<div
+    class="current-day"
+    id="india-day"
+>
 
 <?php
 
@@ -1299,12 +1427,6 @@ $pin_text =
         $pins
     );
 
-
-/*
---------------------------------------------------------
-CARD CLASS
---------------------------------------------------------
-*/
 
 if (
     $status ===
@@ -1363,20 +1485,12 @@ else {
 >
 
 
-<!-- ==================================================
-     PERIOD TITLE
-     ================================================== -->
-
 <div class="period-title">
 
 Period <?php echo $p; ?>
 
 </div>
 
-
-<!-- ==================================================
-     DATE / TIME
-     ================================================== -->
 
 <div class="time-box">
 
@@ -1391,7 +1505,6 @@ echo display_datetime(
 );
 
 ?>
-
 
 <br>
 
@@ -1410,10 +1523,6 @@ echo display_datetime(
 
 </div>
 
-
-<!-- ==================================================
-     STATUS
-     ================================================== -->
 
 <?php
 
@@ -1479,10 +1588,6 @@ endif;
 ?>
 
 
-<!-- ==================================================
-     OWNER MESSAGE
-     ================================================== -->
-
 <?php
 
 if (
@@ -1528,10 +1633,6 @@ endif;
 ?>
 
 
-<!-- ==================================================
-     OUTPUT
-     ================================================== -->
-
 <?php
 
 if (
@@ -1566,20 +1667,12 @@ else {
 </div>
 
 
-<!-- ==================================================
-     PIN TITLE
-     ================================================== -->
-
 <div class="pin-title">
 
 D1 – D8 OUTPUT STATUS
 
 </div>
 
-
-<!-- ==================================================
-     PINS
-     ================================================== -->
 
 <div class="pins">
 
@@ -1663,14 +1756,12 @@ endfor;
 </div>
 
 
-<!-- ==================================================
-     FOOTER
-     ================================================== -->
-
 <div class="footer">
 
-ESP-SWITCH7 &nbsp; | &nbsp;
-Automatic schedule display &nbsp; | &nbsp;
+ESP-SWITCH7
+&nbsp; | &nbsp;
+Automatic schedule display
+&nbsp; | &nbsp;
 India Standard Time (IST)
 
 </div>
@@ -1681,7 +1772,6 @@ India Standard Time (IST)
 
 </body>
 
-
 </html>
 
 
@@ -1690,4 +1780,4 @@ India Standard Time (IST)
 mysqli_close($conn);
 
 ?>
-```
+
