@@ -1,18 +1,24 @@
 <?php
 /*
 ========================================================
-ESP-SWITCH7
+ESP-SWITCH9
 display_schedule.php
 ========================================================
 
-OWNER DEACTIVATION HAS PRIORITY
-
 IMPORTANT:
-The displayed India clock is updated by JavaScript
-every 1 second.
 
-The PHP server time is used for schedule/status
-calculation.
+This page refreshes automatically every 1 second.
+
+Therefore:
+
+1. Current India time is updated every second.
+2. Schedule changes made in schedule.php are detected.
+3. Owner activation/deactivation is detected.
+4. User period activation/deactivation is detected.
+5. D1-D8 output status is updated.
+6. No manual browser refresh is required.
+
+OWNER DEACTIVATION HAS PRIORITY.
 
 ========================================================
 */
@@ -31,9 +37,16 @@ $database = getenv("DB_NAME");
 $port     = intval(getenv("DB_PORT"));
 
 
-if (!$host || !$user || !$database || !$port) {
+if (
+    !$host ||
+    !$user ||
+    !$database ||
+    !$port
+) {
 
-    die("Database environment variables are missing.");
+    die(
+        "Database environment variables are missing."
+    );
 
 }
 
@@ -106,7 +119,9 @@ $current_day =
 
 
 $current_timestamp =
-    strtotime($current_datetime);
+    strtotime(
+        $current_datetime
+    );
 
 
 /* =====================================================
@@ -173,7 +188,9 @@ if (!$result) {
 
 
 $row =
-    mysqli_fetch_assoc($result);
+    mysqli_fetch_assoc(
+        $result
+    );
 
 
 /* =====================================================
@@ -189,10 +206,16 @@ function check_status(
 ) {
 
     /*
+    ----------------------------------------------------
     OWNER DEACTIVATION HAS FIRST PRIORITY
+    ----------------------------------------------------
     */
 
-    if (intval($owner_deactivated) == 1) {
+    if (
+        intval(
+            $owner_deactivated
+        ) == 1
+    ) {
 
         return "OWNER DEACTIVATED";
 
@@ -200,10 +223,16 @@ function check_status(
 
 
     /*
+    ----------------------------------------------------
     USER PERIOD DEACTIVATED
+    ----------------------------------------------------
     */
 
-    if (intval($period_active) != 1) {
+    if (
+        intval(
+            $period_active
+        ) != 1
+    ) {
 
         return "DEACTIVATED";
 
@@ -211,7 +240,9 @@ function check_status(
 
 
     /*
+    ----------------------------------------------------
     DATE/TIME NOT SET
+    ----------------------------------------------------
     */
 
     if (
@@ -226,21 +257,29 @@ function check_status(
 
 
     $start_timestamp =
-        strtotime($start);
+        strtotime(
+            $start
+        );
 
 
     $end_timestamp =
-        strtotime($end);
+        strtotime(
+            $end
+        );
 
 
     /*
+    ----------------------------------------------------
     CURRENT TIME INSIDE PERIOD
+    ----------------------------------------------------
     */
 
     if (
-        $current_timestamp >= $start_timestamp
+        $current_timestamp >=
+        $start_timestamp
         &&
-        $current_timestamp <= $end_timestamp
+        $current_timestamp <=
+        $end_timestamp
     ) {
 
         return "ACTIVE";
@@ -256,10 +295,13 @@ function check_status(
    FORMAT DATE/TIME
    ===================================================== */
 
-function display_datetime($value)
-{
+function display_datetime(
+    $value
+) {
 
-    if (empty($value)) {
+    if (
+        empty($value)
+    ) {
 
         return "--";
 
@@ -277,10 +319,13 @@ function display_datetime($value)
    GET PIN ARRAY
    ===================================================== */
 
-function get_pins($value)
-{
+function get_pins(
+    $value
+) {
 
-    if (empty($value)) {
+    if (
+        empty($value)
+    ) {
 
         return array();
 
@@ -288,17 +333,25 @@ function get_pins($value)
 
 
     $parts =
-        explode(",", $value);
+        explode(
+            ",",
+            $value
+        );
 
 
     $pins =
         array();
 
 
-    foreach ($parts as $pin) {
+    foreach (
+        $parts
+        as $pin
+    ) {
 
         $pin =
-            trim($pin);
+            trim(
+                $pin
+            );
 
 
         if (
@@ -328,45 +381,71 @@ $periods =
     array();
 
 
-for ($p = 1; $p <= 3; $p++) {
+for (
+    $p = 1;
+    $p <= 3;
+    $p++
+) {
 
     if ($row) {
 
         $start =
-            $row["start_time_" . $p];
+            $row[
+                "start_time_" . $p
+            ];
 
         $end =
-            $row["end_time_" . $p];
+            $row[
+                "end_time_" . $p
+            ];
 
         $pins =
             get_pins(
-                $row["pins_output_" . $p]
+                $row[
+                    "pins_output_" . $p
+                ]
             );
 
         $period_active =
             intval(
-                $row["period_active_" . $p]
+                $row[
+                    "period_active_" . $p
+                ]
             );
 
         $owner_deactivated =
             intval(
-                $row["owner_deactivated_" . $p]
+                $row[
+                    "owner_deactivated_" . $p
+                ]
             );
 
-    } else {
+    }
+    else {
 
-        $start = null;
+        $start =
+            null;
 
-        $end = null;
+        $end =
+            null;
 
-        $pins = array();
+        $pins =
+            array();
 
-        $period_active = 0;
+        $period_active =
+            0;
 
-        $owner_deactivated = 0;
+        $owner_deactivated =
+            0;
 
     }
 
+
+    /*
+    ----------------------------------------------------
+    CALCULATE CURRENT STATUS
+    ----------------------------------------------------
+    */
 
     $status =
         check_status(
@@ -378,8 +457,17 @@ for ($p = 1; $p <= 3; $p++) {
         );
 
 
+    /*
+    ----------------------------------------------------
+    OUTPUT IS ON ONLY WHEN ACTIVE
+    ----------------------------------------------------
+    */
+
     $output_on =
-        ($status === "ACTIVE");
+        (
+            $status ===
+            "ACTIVE"
+        );
 
 
     $periods[$p] =
@@ -418,28 +506,33 @@ for ($p = 1; $p <= 3; $p++) {
 
 <meta charset="UTF-8">
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
 
 
 <title>
-ESP-SWITCH7 Schedule Display
+ESP-SWITCH9 Schedule Display
 </title>
 
 
 <!-- ==================================================
-     PAGE RELOAD
+     IMPORTANT
      ==================================================
 
-     Reload every 60 seconds.
+     FULL PAGE REFRESH EVERY 1 SECOND.
 
-     This is separate from the live clock.
-     The JavaScript clock changes every second.
+     This makes changes made in schedule.php
+     visible automatically.
 
      ================================================== -->
 
-<meta http-equiv="refresh"
-      content="60">
+<meta
+    http-equiv="refresh"
+    content="1"
+>
 
 
 <style>
@@ -449,15 +542,20 @@ ESP-SWITCH7 Schedule Display
    ===================================================== */
 
 * {
-    box-sizing: border-box;
+
+    box-sizing:
+        border-box;
+
 }
 
 
 body {
 
-    margin: 0;
+    margin:
+        0;
 
-    padding: 20px;
+    padding:
+        20px;
 
     font-family:
         Arial,
@@ -471,16 +569,19 @@ body {
             #f8fbff
         );
 
-    color: #222;
+    color:
+        #222;
 
 }
 
 
 .main-container {
 
-    max-width: 1000px;
+    max-width:
+        1000px;
 
-    margin: auto;
+    margin:
+        auto;
 
 }
 
@@ -498,156 +599,180 @@ body {
             #174ea6
         );
 
-    color: white;
+    color:
+        white;
 
-    padding: 25px 20px;
+    padding:
+        25px 20px;
 
-    border-radius: 18px;
+    border-radius:
+        18px;
 
-    text-align: center;
+    text-align:
+        center;
 
     box-shadow:
         0 8px 20px
         rgba(0,0,0,0.15);
 
-    margin-bottom: 18px;
+    margin-bottom:
+        18px;
 
 }
 
 
 .header h1 {
 
-    margin: 0;
+    margin:
+        0;
 
-    font-size: 32px;
+    font-size:
+        32px;
 
-    letter-spacing: 1px;
+    letter-spacing:
+        1px;
 
 }
 
 
-.header .controller {
+.controller {
 
-    margin-top: 8px;
+    margin-top:
+        8px;
 
-    font-size: 20px;
+    font-size:
+        20px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
 }
 
 
 /* =====================================================
-   CURRENT TIME CARD
+   CURRENT TIME
    ===================================================== */
 
 .current-card {
 
-    background: white;
+    background:
+        white;
 
-    border-radius: 16px;
+    border-radius:
+        16px;
 
-    padding: 18px;
+    padding:
+        18px;
 
-    text-align: center;
+    text-align:
+        center;
 
     box-shadow:
         0 5px 15px
         rgba(0,0,0,0.10);
 
-    margin-bottom: 20px;
+    margin-bottom:
+        20px;
 
 }
 
 
 .current-label {
 
-    font-size: 15px;
+    font-size:
+        15px;
 
-    color: #666;
+    color:
+        #666;
 
 }
 
 
 .current-time {
 
-    font-size: 28px;
+    font-size:
+        28px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    color: #0d6efd;
+    color:
+        #0d6efd;
 
-    margin: 5px 0;
+    margin:
+        5px 0;
 
 }
 
 
 .current-day {
 
-    display: inline-block;
+    display:
+        inline-block;
 
-    background: #e7f1ff;
+    background:
+        #e7f1ff;
 
-    color: #0d6efd;
+    color:
+        #0d6efd;
 
-    padding: 7px 16px;
+    padding:
+        7px 16px;
 
-    border-radius: 20px;
+    border-radius:
+        20px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    margin-top: 5px;
+    margin-top:
+        5px;
 
 }
 
 
 /* =====================================================
-   PERIODS
+   PERIOD CONTAINER
    ===================================================== */
 
 .period-container {
 
-    display: grid;
+    display:
+        grid;
 
     grid-template-columns:
         repeat(3, 1fr);
 
-    gap: 18px;
+    gap:
+        18px;
 
 }
 
 
+/* =====================================================
+   PERIOD BOX
+   ===================================================== */
+
 .period-box {
 
-    background: white;
+    background:
+        white;
 
-    border-radius: 18px;
+    border-radius:
+        18px;
 
-    padding: 20px;
+    padding:
+        20px;
 
     box-shadow:
         0 6px 18px
         rgba(0,0,0,0.12);
 
-    position: relative;
+    position:
+        relative;
 
-    overflow: hidden;
-
-    transition:
-        transform 0.2s,
-        box-shadow 0.2s;
-
-}
-
-
-.period-box:hover {
-
-    transform:
-        translateY(-3px);
-
-    box-shadow:
-        0 10px 25px
-        rgba(0,0,0,0.16);
+    overflow:
+        hidden;
 
 }
 
@@ -693,39 +818,46 @@ body {
 
 .period-title {
 
-    font-size: 24px;
+    font-size:
+        24px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    margin-bottom: 14px;
+    margin-bottom:
+        14px;
 
 }
 
 
 .active .period-title {
 
-    color: #198754;
+    color:
+        #198754;
 
 }
 
 
 .inactive .period-title {
 
-    color: #555;
+    color:
+        #555;
 
 }
 
 
 .deactivated .period-title {
 
-    color: #dc3545;
+    color:
+        #dc3545;
 
 }
 
 
 .owner-deactivated .period-title {
 
-    color: #8b0000;
+    color:
+        #8b0000;
 
 }
 
@@ -736,81 +868,94 @@ body {
 
 .status {
 
-    display: inline-block;
+    display:
+        inline-block;
 
-    padding: 8px 14px;
+    padding:
+        8px 14px;
 
-    border-radius: 20px;
+    border-radius:
+        20px;
 
-    font-size: 16px;
+    font-size:
+        16px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    margin: 10px 0 15px 0;
+    margin:
+        10px 0 15px 0;
 
 }
 
 
 .status-active {
 
-    background: #d1e7dd;
+    background:
+        #d1e7dd;
 
-    color: #0f5132;
+    color:
+        #0f5132;
 
 }
 
 
 .status-inactive {
 
-    background: #e9ecef;
+    background:
+        #e9ecef;
 
-    color: #495057;
+    color:
+        #495057;
 
 }
 
 
 .status-deactivated {
 
-    background: #f8d7da;
+    background:
+        #f8d7da;
 
-    color: #842029;
+    color:
+        #842029;
 
 }
 
 
 .status-owner {
 
-    background: #f5c2c7;
+    background:
+        #f5c2c7;
 
-    color: #721c24;
+    color:
+        #721c24;
 
 }
 
 
 /* =====================================================
-   DATE / TIME
+   TIME BOX
    ===================================================== */
 
 .time-box {
 
-    background: #f8f9fa;
+    background:
+        #f8f9fa;
 
-    border-radius: 10px;
+    border-radius:
+        10px;
 
-    padding: 12px;
+    padding:
+        12px;
 
-    font-size: 15px;
+    font-size:
+        15px;
 
-    line-height: 1.8;
+    line-height:
+        1.8;
 
-    margin-bottom: 12px;
-
-}
-
-
-.time-box strong {
-
-    color: #495057;
+    margin-bottom:
+        12px;
 
 }
 
@@ -821,35 +966,45 @@ body {
 
 .output-box {
 
-    text-align: center;
+    text-align:
+        center;
 
-    padding: 12px;
+    padding:
+        12px;
 
-    border-radius: 12px;
+    border-radius:
+        12px;
 
-    font-size: 21px;
+    font-size:
+        21px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    margin-top: 12px;
+    margin-top:
+        12px;
 
 }
 
 
 .output-on {
 
-    background: #d1e7dd;
+    background:
+        #d1e7dd;
 
-    color: #0f5132;
+    color:
+        #0f5132;
 
 }
 
 
 .output-off {
 
-    background: #e9ecef;
+    background:
+        #e9ecef;
 
-    color: #495057;
+    color:
+        #495057;
 
 }
 
@@ -860,52 +1015,69 @@ body {
 
 .pin-title {
 
-    margin-top: 18px;
+    margin-top:
+        18px;
 
-    margin-bottom: 8px;
+    margin-bottom:
+        8px;
 
-    font-size: 15px;
+    font-size:
+        15px;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    color: #555;
+    color:
+        #555;
 
 }
 
 
 .pins {
 
-    display: grid;
+    display:
+        grid;
 
     grid-template-columns:
         repeat(4, 1fr);
 
-    gap: 7px;
+    gap:
+        7px;
 
 }
 
 
 .pin {
 
-    min-height: 48px;
+    min-height:
+        48px;
 
-    border-radius: 9px;
+    border-radius:
+        9px;
 
-    display: flex;
+    display:
+        flex;
 
-    flex-direction: column;
+    flex-direction:
+        column;
 
-    align-items: center;
+    align-items:
+        center;
 
-    justify-content: center;
+    justify-content:
+        center;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
-    font-size: 13px;
+    font-size:
+        13px;
 
-    background: #e9ecef;
+    background:
+        #e9ecef;
 
-    color: #6c757d;
+    color:
+        #6c757d;
 
     border:
         1px solid #ced4da;
@@ -915,20 +1087,25 @@ body {
 
 .pin.on {
 
-    background: #198754;
+    background:
+        #198754;
 
-    color: white;
+    color:
+        white;
 
-    border-color: #146c43;
+    border-color:
+        #146c43;
 
 }
 
 
 .pin.off {
 
-    background: #f1f3f5;
+    background:
+        #f1f3f5;
 
-    color: #adb5bd;
+    color:
+        #adb5bd;
 
 }
 
@@ -939,42 +1116,58 @@ body {
 
 .owner-message {
 
-    margin-top: 12px;
+    margin-top:
+        12px;
 
-    padding: 12px;
+    padding:
+        12px;
 
-    background: #f8d7da;
+    background:
+        #f8d7da;
 
-    color: #842029;
+    color:
+        #842029;
 
-    border-radius: 10px;
+    border-radius:
+        10px;
 
-    font-size: 14px;
+    font-size:
+        14px;
 
-    line-height: 1.5;
+    line-height:
+        1.5;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
 }
 
 
 .user-message {
 
-    margin-top: 12px;
+    margin-top:
+        12px;
 
-    padding: 12px;
+    padding:
+        12px;
 
-    background: #fff3cd;
+    background:
+        #fff3cd;
 
-    color: #664d03;
+    color:
+        #664d03;
 
-    border-radius: 10px;
+    border-radius:
+        10px;
 
-    font-size: 14px;
+    font-size:
+        14px;
 
-    line-height: 1.5;
+    line-height:
+        1.5;
 
-    font-weight: bold;
+    font-weight:
+        bold;
 
 }
 
@@ -985,13 +1178,17 @@ body {
 
 .footer {
 
-    text-align: center;
+    text-align:
+        center;
 
-    margin-top: 22px;
+    margin-top:
+        22px;
 
-    color: #777;
+    color:
+        #777;
 
-    font-size: 13px;
+    font-size:
+        13px;
 
 }
 
@@ -1000,32 +1197,38 @@ body {
    MOBILE
    ===================================================== */
 
-@media (max-width: 800px) {
+@media (
+    max-width: 800px
+) {
 
     body {
 
-        padding: 12px;
+        padding:
+            12px;
 
     }
 
 
     .header h1 {
 
-        font-size: 27px;
+        font-size:
+            27px;
 
     }
 
 
     .period-container {
 
-        grid-template-columns: 1fr;
+        grid-template-columns:
+            1fr;
 
     }
 
 
     .current-time {
 
-        font-size: 23px;
+        font-size:
+            23px;
 
     }
 
@@ -1035,193 +1238,6 @@ body {
 
 
 <script>
-
-/* =====================================================
-   LIVE INDIA CLOCK
-   =====================================================
-
-   This clock runs entirely in the browser.
-
-   It updates every 1 second.
-
-   India timezone:
-   UTC + 5:30
-
-   ===================================================== */
-
-
-function updateIndiaClock()
-{
-
-    /*
-    -----------------------------------------------------
-    Get current UTC time.
-    -----------------------------------------------------
-    */
-
-    const now =
-        new Date();
-
-
-    /*
-    -----------------------------------------------------
-    Convert to India Standard Time.
-
-    We use the browser's Intl formatter with the
-    Asia/Kolkata timezone.
-
-    -----------------------------------------------------
-    */
-
-    const indiaTime =
-        new Intl.DateTimeFormat(
-            "en-GB",
-            {
-                timeZone:
-                    "Asia/Kolkata",
-
-                day:
-                    "2-digit",
-
-                month:
-                    "2-digit",
-
-                year:
-                    "numeric",
-
-                hour:
-                    "2-digit",
-
-                minute:
-                    "2-digit",
-
-                second:
-                    "2-digit",
-
-                hour12:
-                    false
-            }
-        ).formatToParts(now);
-
-
-    /*
-    -----------------------------------------------------
-    Create an object containing each time part.
-    -----------------------------------------------------
-    */
-
-    let parts = {};
-
-
-    indiaTime.forEach(
-        function(part)
-        {
-
-            parts[part.type] =
-                part.value;
-
-        }
-    );
-
-
-    /*
-    -----------------------------------------------------
-    Create:
-
-    DD-MM-YYYY HH:MM:SS
-
-    -----------------------------------------------------
-    */
-
-    const formattedTime =
-        parts.day +
-        "-" +
-        parts.month +
-        "-" +
-        parts.year +
-        " " +
-        parts.hour +
-        ":" +
-        parts.minute +
-        ":" +
-        parts.second;
-
-
-    /*
-    -----------------------------------------------------
-    Display the live time.
-    -----------------------------------------------------
-    */
-
-    const clock =
-        document.getElementById(
-            "india-clock"
-        );
-
-
-    if (clock) {
-
-        clock.textContent =
-            formattedTime;
-
-    }
-
-
-    /*
-    -----------------------------------------------------
-    Display current day.
-    -----------------------------------------------------
-    */
-
-    const day =
-        new Intl.DateTimeFormat(
-            "en-IN",
-            {
-                timeZone:
-                    "Asia/Kolkata",
-
-                weekday:
-                    "long"
-            }
-        ).format(now);
-
-
-    const dayElement =
-        document.getElementById(
-            "india-day"
-        );
-
-
-    if (dayElement) {
-
-        dayElement.textContent =
-            day;
-
-    }
-
-}
-
-
-/*
-========================================================
-START CLOCK IMMEDIATELY
-========================================================
-*/
-
-updateIndiaClock();
-
-
-/*
-========================================================
-UPDATE CLOCK EVERY ONE SECOND
-========================================================
-*/
-
-setInterval(
-    updateIndiaClock,
-    1000
-);
-
 
 /* =====================================================
    PERIOD INFORMATION
@@ -1320,13 +1336,14 @@ function showPeriod(
 <div class="header">
 
 <h1>
-ESP-SWITCH7
+ESP-SWITCH9
 </h1>
 
 
 <div class="controller">
 
 Controller:
+
 <?php
 
 echo htmlspecialchars(
@@ -1341,7 +1358,7 @@ echo htmlspecialchars(
 
 
 <!-- ==================================================
-     CURRENT TIME
+     CURRENT INDIA TIME
      ================================================== -->
 
 <div class="current-card">
@@ -1353,16 +1370,7 @@ CURRENT INDIA TIME
 </div>
 
 
-<!--
-========================================================
-THIS VALUE IS UPDATED BY JAVASCRIPT EVERY SECOND
-========================================================
--->
-
-<div
-    class="current-time"
-    id="india-clock"
->
+<div class="current-time">
 
 <?php
 
@@ -1375,10 +1383,7 @@ echo date(
 </div>
 
 
-<div
-    class="current-day"
-    id="india-day"
->
+<div class="current-day">
 
 <?php
 
@@ -1756,11 +1761,17 @@ endfor;
 </div>
 
 
+<!-- ==================================================
+     FOOTER
+     ================================================== -->
+
 <div class="footer">
 
-ESP-SWITCH7
+ESP-SWITCH9
 &nbsp; | &nbsp;
 Automatic schedule display
+&nbsp; | &nbsp;
+Refresh: 1 second
 &nbsp; | &nbsp;
 India Standard Time (IST)
 
