@@ -45,8 +45,14 @@ const char* password =
    RENDER API
    ========================================================= */
 
+/*
+   IMPORTANT:
+   Render hostnames normally use hyphens (-), not underscores (_).
+   Use the exact URL shown in your Render service.
+   */
+
 const char* scheduleURL =
-    "https://esp-switch9-remote.onrender.com/schedule_api.php";
+    "https://esp-switch9-remote.onrender.com/schedule_api.php?controller_id=ESP0001";
 
 
 /* =========================================================
@@ -643,96 +649,154 @@ String getActivePins(
 {
 
     /*
-       We are looking for:
+       Robust parser for:
 
-       "active_pins":"D1,D2,D3"
+       "active_pins":"D1,D2,D5"
 
+       AND also:
+
+       "active_pins": "D1,D2,D5"
+
+       The server may insert whitespace after
+       the colon. The ESP must accept both forms.
     */
 
-
-    String searchText =
-        "\"active_pins\":\"";
-
-
-    int start =
-        json.indexOf(
-            searchText
-        );
+    int keyStart =
+        json.indexOf("\"active_pins\"");
 
 
-    /*
-       active_pins not found.
-    */
-
-    if (
-        start < 0
-    )
+    if (keyStart < 0)
     {
 
         Serial.println(
-            "active_pins not found"
+            "ERROR: active_pins field not found"
         );
 
         return "";
-
     }
 
 
     /*
-       Move to first character
-       after:
-
-       "active_pins":"
+       Find the colon after active_pins.
     */
 
-    start +=
-        searchText.length();
+    int colon =
+        json.indexOf(":", keyStart);
 
 
-    /*
-       Find closing quotation mark.
-    */
-
-    int end =
-        json.indexOf(
-            "\"",
-            start
-        );
-
-
-    if (
-        end < 0
-    )
+    if (colon < 0)
     {
 
         Serial.println(
-            "active_pins end not found"
+            "ERROR: active_pins colon not found"
         );
 
         return "";
-
     }
 
 
     /*
-       Extract:
-
-       D1,D2,D3
+       Skip spaces, tabs and line breaks
+       after the colon.
     */
+
+    int valueStart =
+        colon + 1;
+
+
+    while (
+        valueStart < json.length()
+        &&
+        (
+            json[valueStart] == ' '
+            ||
+            json[valueStart] == '\t'
+            ||
+            json[valueStart] == '\r'
+            ||
+            json[valueStart] == '\n'
+        )
+    )
+    {
+        valueStart++;
+    }
+
+
+    /*
+       We expect a quotation mark.
+    */
+
+    if (
+        valueStart >= json.length()
+        ||
+        json[valueStart] != '"'
+    )
+    {
+
+        Serial.println(
+            "ERROR: active_pins value quote not found"
+        );
+
+        return "";
+    }
+
+
+    /*
+       Move past opening quote.
+    */
+
+    valueStart++;
+
+
+    /*
+       Find closing quote.
+    */
+
+    int valueEnd =
+        json.indexOf(
+            '"',
+            valueStart
+        );
+
+
+    if (valueEnd < 0)
+    {
+
+        Serial.println(
+            "ERROR: active_pins closing quote not found"
+        );
+
+        return "";
+    }
+
 
     String activePins =
         json.substring(
-            start,
-            end
+            valueStart,
+            valueEnd
         );
 
 
     activePins.trim();
 
 
-    return activePins;
+    Serial.print(
+        "Parsed active_pins: "
+    );
 
+    if (activePins.length() == 0)
+    {
+        Serial.println("NONE");
+    }
+    else
+    {
+        Serial.println(activePins);
+    }
+
+
+    return activePins;
 }
+
 
 
 /* =========================================================
