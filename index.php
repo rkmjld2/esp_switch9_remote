@@ -6,7 +6,7 @@
 
     <meta charset="UTF-8">
 
-    <title>ESP-SWITCH7</title>
+    <title>ESP-SWITCH 9</title>
 
     <style>
 
@@ -59,7 +59,7 @@
 
 <div class="container">
 
-    <h1>ESP-SWITCH7</h1>
+    <h1>ESP-SWITCH 9</h1>
 
     <p>ESP8266 Weekly Schedule Control</p>
 
