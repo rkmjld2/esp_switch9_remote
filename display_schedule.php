@@ -1,51 +1,62 @@
 <?php
 /*
-=========================================================
- ESP-SWITCH7
- display_schedule.php
- Render + TiDB Cloud version
- Timezone: Asia/Kolkata
-=========================================================
+========================================================
+ESP-SWITCH7
+display_schedule.php
+========================================================
+
+OWNER DEACTIVATION HAS PRIORITY
+
+Database table:
+weekly_schedule
+
+Fields:
+period_active_1
+period_active_2
+period_active_3
+
+owner_deactivated_1
+owner_deactivated_2
+owner_deactivated_3
+
+RULE:
+
+owner_deactivated = 1
+        |
+        V
+OWNER DEACTIVATED
+        |
+        V
+OUTPUT OFF
+
+Even if period_active = 1.
+
+========================================================
 */
 
-// -------------------------------------------------------
-// TIMEZONE
-// -------------------------------------------------------
 date_default_timezone_set("Asia/Kolkata");
 
 
-// -------------------------------------------------------
-// DATABASE CREDENTIALS FROM RENDER ENVIRONMENT VARIABLES
-// -------------------------------------------------------
-$db_host = getenv("DB_HOST");
-$db_user = getenv("DB_USER");
-$db_pass = getenv("DB_PASSWORD");
-$db_name = getenv("DB_NAME");
-$db_port = getenv("DB_PORT");
+/* =====================================================
+   DATABASE CONNECTION
+   ===================================================== */
+
+$host     = getenv("DB_HOST");
+$user     = getenv("DB_USER");
+$password = getenv("DB_PASSWORD");
+$database = getenv("DB_NAME");
+$port     = intval(getenv("DB_PORT"));
 
 
-// -------------------------------------------------------
-// CHECK ENVIRONMENT VARIABLES
-// -------------------------------------------------------
-if (
-    !$db_host ||
-    !$db_user ||
-    !$db_pass ||
-    !$db_name ||
-    !$db_port
-) {
+if (!$host || !$user || !$database || !$port) {
+
     die("Database environment variables are missing.");
+
 }
 
 
-// -------------------------------------------------------
-// CONNECT TO TiDB CLOUD USING SSL
-// -------------------------------------------------------
 $conn = mysqli_init();
 
-if (!$conn) {
-    die("MySQL initialization failed.");
-}
 
 mysqli_ssl_set(
     $conn,
@@ -56,275 +67,392 @@ mysqli_ssl_set(
     NULL
 );
 
+
 if (!mysqli_real_connect(
     $conn,
-    $db_host,
-    $db_user,
-    $db_pass,
-    $db_name,
-    (int)$db_port,
+    $host,
+    $user,
+    $password,
+    $database,
+    $port,
     NULL,
     MYSQLI_CLIENT_SSL
 )) {
-    die("Database connection failed: " . mysqli_connect_error());
+
+    die(
+        "Database connection failed: "
+        . mysqli_connect_error()
+    );
+
 }
 
 
-// -------------------------------------------------------
-// CONTROLLER ID
-// -------------------------------------------------------
-$controller_id = isset($_GET["controller_id"])
+mysqli_set_charset(
+    $conn,
+    "utf8mb4"
+);
+
+
+/* =====================================================
+   CONTROLLER ID
+   ===================================================== */
+
+$controller_id =
+    isset($_GET["controller_id"])
     ? trim($_GET["controller_id"])
     : "ESP0001";
 
 
-// -------------------------------------------------------
-// CURRENT INDIA DATE / TIME
-// -------------------------------------------------------
-$current_datetime = date("Y-m-d H:i:s");
-$current_date     = date("Y-m-d");
-$current_time     = date("H:i:s");
-$current_day      = date("l");
+$controller_sql =
+    mysqli_real_escape_string(
+        $conn,
+        $controller_id
+    );
 
 
-// -------------------------------------------------------
-// DAY NAME
-// Monday = 1 ... Sunday = 7
-// -------------------------------------------------------
-$day_number = date("N");
+/* =====================================================
+   CURRENT INDIA TIME
+   ===================================================== */
+
+$current_datetime =
+    date("Y-m-d H:i:s");
 
 
-// -------------------------------------------------------
-// FIND TODAY'S SCHEDULE
-// -------------------------------------------------------
+$current_day =
+    date("l");
+
+
+$current_timestamp =
+    strtotime($current_datetime);
+
+
+/* =====================================================
+   GET TODAY'S SCHEDULE
+   ===================================================== */
+
 $sql = "
-    SELECT *
-    FROM weekly_schedule
-    WHERE controller_id = ?
-      AND day_week = ?
-    LIMIT 1
+
+SELECT
+
+    id,
+    controller_id,
+    day_week,
+
+    start_time_1,
+    end_time_1,
+    pins_output_1,
+    period_active_1,
+    owner_deactivated_1,
+
+    start_time_2,
+    end_time_2,
+    pins_output_2,
+    period_active_2,
+    owner_deactivated_2,
+
+    start_time_3,
+    end_time_3,
+    pins_output_3,
+    period_active_3,
+    owner_deactivated_3
+
+FROM weekly_schedule
+
+WHERE day_week =
+'" . mysqli_real_escape_string(
+        $conn,
+        $current_day
+    ) . "'
+
+AND controller_id =
+'$controller_sql'
+
+LIMIT 1
+
 ";
 
-$stmt = mysqli_prepare($conn, $sql);
 
-if (!$stmt) {
-    die("SQL prepare failed: " . mysqli_error($conn));
+$result =
+    mysqli_query(
+        $conn,
+        $sql
+    );
+
+
+if (!$result) {
+
+    die(
+        "Schedule query failed: "
+        . mysqli_error($conn)
+    );
+
 }
 
-mysqli_stmt_bind_param(
-    $stmt,
-    "si",
-    $controller_id,
-    $day_number
-);
 
-mysqli_stmt_execute($stmt);
-
-$result = mysqli_stmt_get_result($stmt);
-
-$schedule = mysqli_fetch_assoc($result);
-
-mysqli_stmt_close($stmt);
+$row =
+    mysqli_fetch_assoc($result);
 
 
-// -------------------------------------------------------
-// FUNCTION TO CONVERT PINS STRING INTO ARRAY
-// -------------------------------------------------------
-function getPins($pins)
-{
-    $output = array();
+/* =====================================================
+   PERIOD STATUS FUNCTION
+   ===================================================== */
 
-    if ($pins === null || trim($pins) === "") {
-        return $output;
+function check_status(
+    $owner_deactivated,
+    $period_active,
+    $start,
+    $end,
+    $current_timestamp
+) {
+
+    /*
+    ----------------------------------------------------
+    OWNER DEACTIVATION HAS FIRST PRIORITY
+    ----------------------------------------------------
+    */
+
+    if (intval($owner_deactivated) == 1) {
+
+        return "OWNER DEACTIVATED";
+
     }
 
-    $parts = explode(",", $pins);
+
+    /*
+    ----------------------------------------------------
+    USER PERIOD DEACTIVATED
+    ----------------------------------------------------
+    */
+
+    if (intval($period_active) != 1) {
+
+        return "DEACTIVATED";
+
+    }
+
+
+    /*
+    ----------------------------------------------------
+    DATE/TIME NOT SET
+    ----------------------------------------------------
+    */
+
+    if (
+        empty($start)
+        ||
+        empty($end)
+    ) {
+
+        return "INACTIVE";
+
+    }
+
+
+    $start_timestamp =
+        strtotime($start);
+
+
+    $end_timestamp =
+        strtotime($end);
+
+
+    /*
+    ----------------------------------------------------
+    CURRENT TIME INSIDE PERIOD
+    ----------------------------------------------------
+    */
+
+    if (
+        $current_timestamp >=
+        $start_timestamp
+        &&
+        $current_timestamp <=
+        $end_timestamp
+    ) {
+
+        return "ACTIVE";
+
+    }
+
+
+    return "INACTIVE";
+}
+
+
+/* =====================================================
+   FORMAT DATE/TIME
+   ===================================================== */
+
+function display_datetime($value)
+{
+
+    if (
+        empty($value)
+    ) {
+
+        return "--";
+
+    }
+
+
+    return date(
+        "d-m-Y H:i",
+        strtotime($value)
+    );
+}
+
+
+/* =====================================================
+   GET PIN ARRAY
+   ===================================================== */
+
+function get_pins($value)
+{
+
+    if (
+        empty($value)
+    ) {
+
+        return array();
+
+    }
+
+
+    $parts =
+        explode(
+            ",",
+            $value
+        );
+
+
+    $pins =
+        array();
+
 
     foreach ($parts as $pin) {
 
-        $pin = trim($pin);
+        $pin =
+            trim($pin);
 
-        if ($pin !== "") {
-            $output[] = $pin;
-        }
-    }
-
-    return $output;
-}
-
-
-// -------------------------------------------------------
-// FUNCTION TO CHECK WHETHER A PERIOD IS ACTIVE NOW
-// -------------------------------------------------------
-function periodIsRunning(
-    $start_date,
-    $start_time,
-    $end_date,
-    $end_time
-) {
-    if (
-        empty($start_date) ||
-        empty($start_time) ||
-        empty($end_date) ||
-        empty($end_time)
-    ) {
-        return false;
-    }
-
-    $now = time();
-
-    $start = strtotime(
-        $start_date . " " . $start_time
-    );
-
-    $end = strtotime(
-        $end_date . " " . $end_time
-    );
-
-    if ($start === false || $end === false) {
-        return false;
-    }
-
-    return ($now >= $start && $now <= $end);
-}
-
-
-// -------------------------------------------------------
-// PERIOD INFORMATION
-// -------------------------------------------------------
-$periods = array();
-
-for ($i = 1; $i <= 3; $i++) {
-
-    $start_field = "start_time_" . $i;
-    $end_field   = "end_time_" . $i;
-    $pins_field  = "pins_output_" . $i;
-    $active_field = "period_active_" . $i;
-
-    $start_value = isset($schedule[$start_field])
-        ? $schedule[$start_field]
-        : "";
-
-    $end_value = isset($schedule[$end_field])
-        ? $schedule[$end_field]
-        : "";
-
-    $pins_value = isset($schedule[$pins_field])
-        ? $schedule[$pins_field]
-        : "";
-
-    $period_active = isset($schedule[$active_field])
-        ? (int)$schedule[$active_field]
-        : 0;
-
-
-    // ---------------------------------------------------
-    // Default values
-    // ---------------------------------------------------
-    $status = "DEACTIVATED";
-    $running = false;
-    $pins = getPins($pins_value);
-
-
-    // ---------------------------------------------------
-    // PERIOD ACTIVE FLAG
-    // ---------------------------------------------------
-    if ($period_active == 1) {
-
-        /*
-         * start_time_X / end_time_X may be DATETIME
-         * values such as:
-         *
-         * 2026-09-30 09:32:00
-         * 2026-10-02 18:00:00
-         */
-
-        $start_timestamp = strtotime($start_value);
-        $end_timestamp   = strtotime($end_value);
 
         if (
-            $start_timestamp !== false &&
-            $end_timestamp !== false
+            preg_match(
+                '/^D[1-8]$/',
+                $pin
+            )
         ) {
 
-            $now_timestamp = time();
+            $pins[] =
+                $pin;
 
-            if ($now_timestamp < $start_timestamp) {
-
-                $status = "NOT STARTED";
-
-            } elseif ($now_timestamp > $end_timestamp) {
-
-                $status = "EXPIRED";
-
-            } else {
-
-                $status = "ACTIVE";
-                $running = true;
-            }
         }
+
     }
 
 
-    // ---------------------------------------------------
-    // IF DEACTIVATED, OUTPUT MUST BE OFF
-    // ---------------------------------------------------
-    if ($period_active != 1) {
+    return $pins;
+}
 
-        $status = "DEACTIVATED";
-        $running = false;
+
+/* =====================================================
+   BUILD PERIOD INFORMATION
+   ===================================================== */
+
+$periods =
+    array();
+
+
+for ($p = 1; $p <= 3; $p++) {
+
+    if ($row) {
+
+        $start =
+            $row["start_time_" . $p];
+
+        $end =
+            $row["end_time_" . $p];
+
+        $pins =
+            get_pins(
+                $row["pins_output_" . $p]
+            );
+
+        $period_active =
+            intval(
+                $row["period_active_" . $p]
+            );
+
+        $owner_deactivated =
+            intval(
+                $row["owner_deactivated_" . $p]
+            );
+
+    } else {
+
+        $start = null;
+
+        $end = null;
+
         $pins = array();
+
+        $period_active = 0;
+
+        $owner_deactivated = 0;
+
     }
 
 
-    $periods[$i] = array(
-        "start"   => $start_value,
-        "end"     => $end_value,
-        "pins"    => $pins,
-        "active"  => $period_active,
-        "status"  => $status,
-        "running" => $running
-    );
-}
+    $status =
+        check_status(
+            $owner_deactivated,
+            $period_active,
+            $start,
+            $end,
+            $current_timestamp
+        );
 
 
-// -------------------------------------------------------
-// DETERMINE CURRENT OUTPUT PINS
-// -------------------------------------------------------
-$current_pins = array();
+    /*
+    ----------------------------------------------------
+    OUTPUT IS ON ONLY WHEN STATUS = ACTIVE
+    ----------------------------------------------------
+    */
 
-for ($i = 1; $i <= 3; $i++) {
-
-    if ($periods[$i]["running"] === true) {
-
-        foreach ($periods[$i]["pins"] as $pin) {
-
-            if (!in_array($pin, $current_pins)) {
-                $current_pins[] = $pin;
-            }
-        }
-    }
-}
+    $output_on =
+        ($status === "ACTIVE");
 
 
-// -------------------------------------------------------
-// SORT PINS
-// -------------------------------------------------------
-sort($current_pins);
+    $periods[$p] =
+        array(
 
+            "start" =>
+                $start,
 
-// -------------------------------------------------------
-// FUNCTION FOR PIN STATUS
-// -------------------------------------------------------
-function pinIsOn($pin, $current_pins)
-{
-    return in_array($pin, $current_pins);
+            "end" =>
+                $end,
+
+            "pins" =>
+                $pins,
+
+            "period_active" =>
+                $period_active,
+
+            "owner_deactivated" =>
+                $owner_deactivated,
+
+            "status" =>
+                $status,
+
+            "output_on" =>
+                $output_on
+        );
 }
 
 ?>
+
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
 
 <head>
 
@@ -333,491 +461,751 @@ function pinIsOn($pin, $current_pins)
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
-<title>ESP-SWITCH7 Schedule</title>
+
+<title>
+ESP-SWITCH7 Schedule Display
+</title>
+
+
+<meta http-equiv="refresh"
+      content="60">
+
 
 <style>
 
 body {
+
     font-family: Arial, sans-serif;
+
     background: #f2f2f2;
+
     margin: 0;
-    padding: 20px;
+
+    padding: 15px;
+
 }
 
-.container {
-    max-width: 1000px;
-    margin: auto;
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-}
 
 h1 {
+
     text-align: center;
+
     margin-bottom: 5px;
+
 }
 
-.header-info {
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 18px;
-}
 
 .controller {
-    font-weight: bold;
+
+    text-align: center;
+
     font-size: 20px;
-}
 
-.day {
     font-weight: bold;
-    font-size: 20px;
+
+    margin-bottom: 10px;
+
 }
 
-.time {
-    font-size: 18px;
-    margin-top: 5px;
-}
 
-.period {
-    border: 1px solid #ccc;
-    border-radius: 8px;
+.current {
+
+    text-align: center;
+
+    background: white;
+
     padding: 15px;
-    margin-bottom: 15px;
-    background: #fafafa;
+
+    border-radius: 8px;
+
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0,0,0,0.15);
+
 }
+
+
+.period-container {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 20px;
+
+}
+
+
+.period-box {
+
+    background: white;
+
+    border-radius: 12px;
+
+    padding: 20px;
+
+    box-shadow:
+        0 3px 8px
+        rgba(0,0,0,0.18);
+
+    cursor: pointer;
+
+}
+
+
+.period-box.active {
+
+    border: 5px solid #28a745;
+
+}
+
+
+.period-box.inactive {
+
+    border: 5px solid #777;
+
+}
+
+
+.period-box.deactivated {
+
+    border: 5px solid #dc3545;
+
+}
+
+
+.period-box.owner-deactivated {
+
+    border: 5px solid #8b0000;
+
+    background: #fff1f1;
+
+}
+
 
 .period-title {
-    font-size: 20px;
+
+    font-size: 26px;
+
     font-weight: bold;
-    margin-bottom: 10px;
+
+    margin-bottom: 12px;
+
 }
 
-.date-time {
-    font-size: 16px;
-    margin-bottom: 10px;
-}
 
 .status {
-    display: inline-block;
-    padding: 8px 14px;
-    border-radius: 5px;
+
+    font-size: 22px;
+
     font-weight: bold;
-    margin-bottom: 12px;
+
+    margin: 10px 0;
+
 }
+
 
 .status-active {
-    background: #198754;
-    color: white;
+
+    color: #28a745;
+
 }
 
-.status-notstarted {
-    background: #ffc107;
-    color: black;
+
+.status-inactive {
+
+    color: #555;
+
 }
 
-.status-expired {
-    background: #dc3545;
-    color: white;
-}
 
 .status-deactivated {
-    background: #6c757d;
-    color: white;
+
+    color: #dc3545;
+
 }
 
-.pins {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
+
+.status-owner {
+
+    color: #8b0000;
+
 }
 
-.pin {
-    width: 55px;
-    height: 45px;
-    border-radius: 6px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.time {
+
+    font-size: 18px;
+
+    margin-bottom: 8px;
+
+}
+
+
+.output {
+
+    font-size: 20px;
 
     font-weight: bold;
-    border: 2px solid #333;
 
-    background: #eeeeee;
-    color: #333;
+    margin-top: 15px;
+
 }
 
-.pin-on {
-    background: #198754;
+
+.pins {
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-top: 15px;
+
+}
+
+
+.pin {
+
+    width: 55px;
+
+    height: 45px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 7px;
+
+    background: #777;
+
     color: white;
-    border-color: #198754;
+
+    font-weight: bold;
+
+    font-size: 17px;
+
 }
 
-.pin-off {
-    background: #eeeeee;
-    color: #333;
+
+.pin.on {
+
+    background: #28a745;
+
 }
 
-.current-output {
-    margin-top: 25px;
-    padding: 15px;
-    border-radius: 8px;
-    background: #f8f9fa;
-    border: 1px solid #ccc;
+
+.pin.off {
+
+    background: #777;
+
 }
 
-.current-output h2 {
-    margin-top: 0;
+
+.owner-message {
+
+    margin-top: 12px;
+
+    padding: 12px;
+
+    background: #f8d7da;
+
+    color: #721c24;
+
+    border-radius: 6px;
+
+    font-weight: bold;
+
 }
 
-.no-schedule {
-    text-align: center;
-    padding: 30px;
-    font-size: 20px;
-    color: #666;
-}
 
-.refresh {
-    text-align: center;
-    margin-top: 20px;
-}
+.user-message {
 
-.refresh button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
+    margin-top: 12px;
+
+    padding: 12px;
+
+    background: #fff3cd;
+
+    color: #856404;
+
+    border-radius: 6px;
+
+    font-weight: bold;
+
 }
 
 </style>
 
+
+<script>
+
+/*
+========================================================
+AUTO REFRESH
+========================================================
+
+The page reloads every second so that the display
+changes automatically when a schedule becomes active
+or inactive.
+
+========================================================
+*/
+
+setTimeout(
+    function () {
+        location.reload();
+    },
+    1000
+);
+
+
+function showPeriod(
+    period,
+    status,
+    pins
+) {
+
+    if (
+        status ===
+        "OWNER DEACTIVATED"
+    ) {
+
+        alert(
+            "Period " +
+            period +
+            "\n\n" +
+            "OWNER DEACTIVATED" +
+            "\n\n" +
+            "Output: OFF"
+        );
+
+        return;
+    }
+
+
+    if (
+        status ===
+        "DEACTIVATED"
+    ) {
+
+        alert(
+            "Period " +
+            period +
+            "\n\n" +
+            "Period Deactivated" +
+            "\n\n" +
+            "Output: OFF"
+        );
+
+        return;
+    }
+
+
+    if (
+        status ===
+        "ACTIVE"
+    ) {
+
+        alert(
+            "Period " +
+            period +
+            "\n\n" +
+            "Status: ACTIVE" +
+            "\n\n" +
+            "Outputs: " +
+            pins
+        );
+
+        return;
+    }
+
+
+    alert(
+        "Period " +
+        period +
+        "\n\n" +
+        "Status: INACTIVE" +
+        "\n\n" +
+        "Output: OFF"
+    );
+}
+
+</script>
+
+
 </head>
+
 
 <body>
 
-<div class="container">
 
-<h1>ESP-SWITCH7</h1>
+<h1>
+ESP-SWITCH7
+</h1>
 
-<div class="header-info">
 
 <div class="controller">
-Controller: <?php echo htmlspecialchars($controller_id); ?>
+
+Controller:
+<?php
+
+echo htmlspecialchars(
+    $controller_id
+);
+
+?>
+
 </div>
 
-<div class="day">
-Today: <?php echo htmlspecialchars($current_day); ?>
+
+<div class="current">
+
+<strong>
+Current India Time:
+</strong>
+
+<br>
+
+<?php
+
+echo date(
+    "d-m-Y H:i:s"
+);
+
+?>
+
+
+<br><br>
+
+
+<strong>
+Today:
+</strong>
+
+<?php
+
+echo htmlspecialchars(
+    $current_day
+);
+
+?>
+
 </div>
+
+
+<div class="period-container">
+
+
+<?php for (
+    $p = 1;
+    $p <= 3;
+    $p++
+): ?>
+
+
+<?php
+
+$period =
+    $periods[$p];
+
+
+$status =
+    $period["status"];
+
+
+$pins =
+    $period["pins"];
+
+
+$pin_text =
+    implode(
+        ", ",
+        $pins
+    );
+
+
+if (
+    $status ===
+    "ACTIVE"
+) {
+
+    $box_class =
+        "active";
+
+} elseif (
+    $status ===
+    "OWNER DEACTIVATED"
+) {
+
+    $box_class =
+        "owner-deactivated";
+
+} elseif (
+    $status ===
+    "DEACTIVATED"
+) {
+
+    $box_class =
+        "deactivated";
+
+} else {
+
+    $box_class =
+        "inactive";
+
+}
+
+
+?>
+
+
+<div class="period-box <?php echo $box_class; ?>"
+     onclick="showPeriod(
+        <?php echo $p; ?>,
+        '<?php echo htmlspecialchars($status, ENT_QUOTES); ?>',
+        '<?php echo htmlspecialchars($pin_text, ENT_QUOTES); ?>'
+     )">
+
+
+<div class="period-title">
+
+Period
+<?php echo $p; ?>
+
+</div>
+
 
 <div class="time">
-India Time:
+
 <strong>
-<?php echo htmlspecialchars($current_datetime); ?>
+Start:
 </strong>
-</div>
+
+<?php
+
+echo display_datetime(
+    $period["start"]
+);
+
+?>
+
+<br>
+
+
+<strong>
+End:
+</strong>
+
+<?php
+
+echo display_datetime(
+    $period["end"]
+);
+
+?>
 
 </div>
 
 
-<?php if (!$schedule): ?>
+<?php if (
+    $status ===
+    "ACTIVE"
+): ?>
 
-<div class="no-schedule">
 
-No schedule found for
-<strong><?php echo htmlspecialchars($current_day); ?></strong>.
+<div class="status status-active">
+
+● ACTIVE
 
 </div>
+
+
+<?php elseif (
+    $status ===
+    "OWNER DEACTIVATED"
+): ?>
+
+
+<div class="status status-owner">
+
+● OWNER DEACTIVATED
+
+</div>
+
+
+<?php elseif (
+    $status ===
+    "DEACTIVATED"
+): ?>
+
+
+<div class="status status-deactivated">
+
+● DEACTIVATED
+
+</div>
+
 
 <?php else: ?>
 
 
-<!-- ===============================================
-     PERIOD 1
-================================================ -->
+<div class="status status-inactive">
 
-<div class="period">
-
-<div class="period-title">
-Period 1
-</div>
-
-<div class="date-time">
-
-<strong>Start:</strong>
-<?php echo htmlspecialchars($periods[1]["start"]); ?>
-
-<br>
-
-<strong>End:</strong>
-<?php echo htmlspecialchars($periods[1]["end"]); ?>
+● INACTIVE
 
 </div>
 
-
-<?php
-
-$status_class = "status-deactivated";
-
-if ($periods[1]["status"] == "ACTIVE") {
-    $status_class = "status-active";
-}
-elseif ($periods[1]["status"] == "NOT STARTED") {
-    $status_class = "status-notstarted";
-}
-elseif ($periods[1]["status"] == "EXPIRED") {
-    $status_class = "status-expired";
-}
-
-?>
-
-<div class="status <?php echo $status_class; ?>">
-
-<?php echo htmlspecialchars($periods[1]["status"]); ?>
-
-</div>
-
-
-<div>
-<strong>Outputs:</strong>
-</div>
-
-<div class="pins">
-
-<?php for ($p = 1; $p <= 8; $p++): ?>
-
-<?php
-$pin_name = "D" . $p;
-$is_on = pinIsOn(
-    $pin_name,
-    $periods[1]["running"]
-        ? $periods[1]["pins"]
-        : array()
-);
-?>
-
-<div class="pin <?php echo $is_on ? 'pin-on' : 'pin-off'; ?>">
-
-<?php echo $pin_name; ?>
-
-</div>
-
-<?php endfor; ?>
-
-</div>
-
-</div>
-
-
-
-<!-- ===============================================
-     PERIOD 2
-================================================ -->
-
-<div class="period">
-
-<div class="period-title">
-Period 2
-</div>
-
-<div class="date-time">
-
-<strong>Start:</strong>
-<?php echo htmlspecialchars($periods[2]["start"]); ?>
-
-<br>
-
-<strong>End:</strong>
-<?php echo htmlspecialchars($periods[2]["end"]); ?>
-
-</div>
-
-
-<?php
-
-$status_class = "status-deactivated";
-
-if ($periods[2]["status"] == "ACTIVE") {
-    $status_class = "status-active";
-}
-elseif ($periods[2]["status"] == "NOT STARTED") {
-    $status_class = "status-notstarted";
-}
-elseif ($periods[2]["status"] == "EXPIRED") {
-    $status_class = "status-expired";
-}
-
-?>
-
-<div class="status <?php echo $status_class; ?>">
-
-<?php echo htmlspecialchars($periods[2]["status"]); ?>
-
-</div>
-
-
-<div>
-<strong>Outputs:</strong>
-</div>
-
-<div class="pins">
-
-<?php for ($p = 1; $p <= 8; $p++): ?>
-
-<?php
-$pin_name = "D" . $p;
-
-$is_on = pinIsOn(
-    $pin_name,
-    $periods[2]["running"]
-        ? $periods[2]["pins"]
-        : array()
-);
-?>
-
-<div class="pin <?php echo $is_on ? 'pin-on' : 'pin-off'; ?>">
-
-<?php echo $pin_name; ?>
-
-</div>
-
-<?php endfor; ?>
-
-</div>
-
-</div>
-
-
-
-<!-- ===============================================
-     PERIOD 3
-================================================ -->
-
-<div class="period">
-
-<div class="period-title">
-Period 3
-</div>
-
-<div class="date-time">
-
-<strong>Start:</strong>
-<?php echo htmlspecialchars($periods[3]["start"]); ?>
-
-<br>
-
-<strong>End:</strong>
-<?php echo htmlspecialchars($periods[3]["end"]); ?>
-
-</div>
-
-
-<?php
-
-$status_class = "status-deactivated";
-
-if ($periods[3]["status"] == "ACTIVE") {
-    $status_class = "status-active";
-}
-elseif ($periods[3]["status"] == "NOT STARTED") {
-    $status_class = "status-notstarted";
-}
-elseif ($periods[3]["status"] == "EXPIRED") {
-    $status_class = "status-expired";
-}
-
-?>
-
-<div class="status <?php echo $status_class; ?>">
-
-<?php echo htmlspecialchars($periods[3]["status"]); ?>
-
-</div>
-
-
-<div>
-<strong>Outputs:</strong>
-</div>
-
-<div class="pins">
-
-<?php for ($p = 1; $p <= 8; $p++): ?>
-
-<?php
-$pin_name = "D" . $p;
-
-$is_on = pinIsOn(
-    $pin_name,
-    $periods[3]["running"]
-        ? $periods[3]["pins"]
-        : array()
-);
-?>
-
-<div class="pin <?php echo $is_on ? 'pin-on' : 'pin-off'; ?>">
-
-<?php echo $pin_name; ?>
-
-</div>
-
-<?php endfor; ?>
-
-</div>
-
-</div>
-
-
-
-<!-- ===============================================
-     CURRENT OUTPUT
-================================================ -->
-
-<div class="current-output">
-
-<h2>Current Output</h2>
-
-<div class="pins">
-
-<?php for ($p = 1; $p <= 8; $p++): ?>
-
-<?php
-$pin_name = "D" . $p;
-$is_on = pinIsOn($pin_name, $current_pins);
-?>
-
-<div class="pin <?php echo $is_on ? 'pin-on' : 'pin-off'; ?>">
-
-<?php echo $pin_name; ?>
-
-</div>
-
-<?php endfor; ?>
-
-</div>
-
-</div>
 
 <?php endif; ?>
 
 
-<div class="refresh">
+<?php if (
+    $status ===
+    "OWNER DEACTIVATED"
+): ?>
 
-<button onclick="location.reload();">
-Refresh
-</button>
+
+<div class="owner-message">
+
+OWNER HAS DEACTIVATED THIS PERIOD.
+
+<br>
+
+ALL OUTPUTS ARE OFF.
 
 </div>
 
+
+<?php elseif (
+    $status ===
+    "DEACTIVATED"
+): ?>
+
+
+<div class="user-message">
+
+USER PERIOD IS DEACTIVATED.
+
+<br>
+
+ALL OUTPUTS ARE OFF.
+
 </div>
+
+
+<?php endif; ?>
+
+
+<div class="output">
+
+Output:
+
+<?php
+
+if (
+    $status ===
+    "ACTIVE"
+) {
+
+    echo "ON";
+
+} else {
+
+    echo "OFF";
+
+}
+
+?>
+
+</div>
+
+
+<div class="pins">
+
+
+<?php for (
+    $d = 1;
+    $d <= 8;
+    $d++
+): ?>
+
+
+<?php
+
+$pin_name =
+    "D" . $d;
+
+
+$is_on =
+    (
+        $status ===
+        "ACTIVE"
+        &&
+        in_array(
+            $pin_name,
+            $pins
+        )
+    );
+
+
+?>
+
+
+<div class="pin <?php
+
+echo $is_on
+    ? "on"
+    : "off";
+
+?>">
+
+
+<?php echo $pin_name; ?>
+
+
+<br>
+
+
+<?php
+
+echo $is_on
+    ? "ON"
+    : "OFF";
+
+?>
+
+
+</div>
+
+
+<?php endfor; ?>
+
+
+</div>
+
+
+</div>
+
+
+<?php endfor; ?>
+
+
+</div>
+
 
 </body>
 
 </html>
 
+
 <?php
 
-// -------------------------------------------------------
-// CLOSE DATABASE
-// -------------------------------------------------------
 mysqli_close($conn);
 
 ?>
