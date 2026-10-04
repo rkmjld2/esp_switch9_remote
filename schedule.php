@@ -1,4 +1,3 @@
-```php
 <?php
 
 date_default_timezone_set("Asia/Kolkata");
@@ -165,38 +164,45 @@ if (
             );
 
 
-        /*
-         * User active setting.
-         *
-         * The hidden field always contains the current
-         * user setting.
-         *
-         * If the checkbox is enabled, its value 1 will
-         * override the hidden 0.
-         */
+        /* ---------------------------------------------
+           USER ACTIVE SETTING
+           --------------------------------------------- */
 
         $period_active = 0;
 
         if (
-            isset($_POST["period_active_$p"])
+            isset(
+                $_POST["period_active_$p"]
+            )
         ) {
+
+            /*
+             * Checkbox gives 1.
+             */
+
             $period_active =
                 intval(
-                    $_POST["period_active_$p"]
+                    $_POST[
+                        "period_active_$p"
+                    ]
                 );
         }
 
 
-        /* =================================================
+        /* ---------------------------------------------
            READ PINS
-           ================================================= */
+           --------------------------------------------- */
 
         $pins = "";
 
         if (
-            isset($_POST["pins_$p"])
+            isset(
+                $_POST["pins_$p"]
+            )
             &&
-            is_array($_POST["pins_$p"])
+            is_array(
+                $_POST["pins_$p"]
+            )
         ) {
 
             $pin_array = array();
@@ -248,7 +254,11 @@ if (
     $valid = true;
 
 
-    for ($p = 1; $p <= 3; $p++) {
+    for (
+        $p = 1;
+        $p <= 3;
+        $p++
+    ) {
 
         if (
             $periods[$p]["start"] !== NULL
@@ -277,6 +287,10 @@ if (
     }
 
 
+    /* ---------------------------------------------
+       PERIOD 1 -> PERIOD 2
+       --------------------------------------------- */
+
     if ($valid) {
 
         if (
@@ -300,6 +314,10 @@ if (
         }
     }
 
+
+    /* ---------------------------------------------
+       PERIOD 2 -> PERIOD 3
+       --------------------------------------------- */
 
     if ($valid) {
 
@@ -327,12 +345,21 @@ if (
 
     /* =================================================
        UPDATE DATABASE
-
-       IMPORTANT:
-       owner_deactivated_1/2/3 are NOT changed here.
        ================================================= */
 
     if ($valid) {
+
+        /*
+         * IMPORTANT:
+         *
+         * owner_deactivated_1
+         * owner_deactivated_2
+         * owner_deactivated_3
+         *
+         * are NOT modified here.
+         *
+         * Only user schedule information is changed.
+         */
 
         $sql = "
 
@@ -416,7 +443,12 @@ if (
         ";
 
 
-        if (mysqli_query($conn, $sql)) {
+        if (
+            mysqli_query(
+                $conn,
+                $sql
+            )
+        ) {
 
             $message =
                 "Schedule saved successfully.";
@@ -507,10 +539,16 @@ if (!$result) {
 <meta name="viewport"
       content="width=device-width, initial-scale=1.0">
 
-<title>ESP-SWITCH7 Schedule</title>
+<title>
+ESP-SWITCH9 Schedule
+</title>
 
 
 <style>
+
+/* =====================================================
+   GENERAL
+   ===================================================== */
 
 * {
     box-sizing: border-box;
@@ -556,6 +594,10 @@ h1 {
 }
 
 
+/* =====================================================
+   MESSAGES
+   ===================================================== */
+
 .message,
 .error {
 
@@ -588,6 +630,10 @@ h1 {
     color: #842029;
 }
 
+
+/* =====================================================
+   DAY
+   ===================================================== */
 
 .day-box {
 
@@ -627,6 +673,10 @@ h1 {
 }
 
 
+/* =====================================================
+   PERIOD
+   ===================================================== */
+
 .period {
 
     border: 2px solid #d0d7de;
@@ -653,6 +703,10 @@ h1 {
 }
 
 
+/* =====================================================
+   DATE / TIME
+   ===================================================== */
+
 input[type="date"],
 input[type="time"] {
 
@@ -665,6 +719,10 @@ input[type="time"] {
     border-radius: 6px;
 }
 
+
+/* =====================================================
+   PINS
+   ===================================================== */
 
 .pin-title {
 
@@ -692,11 +750,19 @@ input[type="time"] {
 }
 
 
+/*
+ * Normal checkbox is hidden.
+ */
+
 .pin-option input {
 
     display: none;
 }
 
+
+/*
+ * Normal OFF pin.
+ */
 
 .pin-option span {
 
@@ -720,6 +786,10 @@ input[type="time"] {
 }
 
 
+/*
+ * Normal user-selected pin = GREEN.
+ */
+
 .pin-option input:checked + span {
 
     background: #198754;
@@ -730,11 +800,32 @@ input[type="time"] {
 }
 
 
+/*
+ * IMPORTANT:
+ *
+ * Owner deactivated:
+ * ALL pins are visually OFF.
+ *
+ * Even if they are saved in database.
+ */
+
+.pin-option.off-state span {
+
+    background: #e9ecef;
+
+    color: #6c757d;
+
+    border-color: #adb5bd;
+
+    cursor: not-allowed;
+}
+
+
 /* =====================================================
-   STATUS SWITCH
+   CONTROL BOX
    ===================================================== */
 
-.status-box {
+.control-box {
 
     margin-top: 15px;
 
@@ -742,11 +833,15 @@ input[type="time"] {
 
     border-radius: 10px;
 
-    border: 2px solid #d0d7de;
+    background: #e7f1ff;
 
-    background: #ffffff;
+    border: 1px solid #b6d4fe;
 }
 
+
+/* =====================================================
+   STATUS
+   ===================================================== */
 
 .status-title {
 
@@ -758,7 +853,29 @@ input[type="time"] {
 }
 
 
-/* SWITCH */
+.status-on {
+
+    color: #198754;
+
+    font-weight: bold;
+
+    font-size: 18px;
+}
+
+
+.status-off {
+
+    color: #dc3545;
+
+    font-weight: bold;
+
+    font-size: 18px;
+}
+
+
+/* =====================================================
+   SWITCH
+   ===================================================== */
 
 .switch {
 
@@ -843,8 +960,7 @@ input[type="time"] {
 
 
 /*
- * When owner has deactivated the period,
- * the switch is locked OFF.
+ * Owner deactivated switch.
  */
 
 .switch input:disabled + .slider {
@@ -852,41 +968,12 @@ input[type="time"] {
     background: #6c757d;
 
     cursor: not-allowed;
-
 }
 
 
-.status-on {
-
-    color: #198754;
-
-    font-weight: bold;
-
-    font-size: 18px;
-}
-
-
-.status-off {
-
-    color: #dc3545;
-
-    font-weight: bold;
-
-    font-size: 18px;
-}
-
-
-.control-box {
-
-    margin-top: 15px;
-
-    padding: 12px;
-
-    border-radius: 8px;
-
-    background: #e7f1ff;
-}
-
+/* =====================================================
+   OWNER
+   ===================================================== */
 
 .owner-box {
 
@@ -922,6 +1009,10 @@ input[type="time"] {
 }
 
 
+/* =====================================================
+   SAVE BUTTON
+   ===================================================== */
+
 .save-button {
 
     margin-top: 12px;
@@ -952,7 +1043,7 @@ input[type="time"] {
 
 
 <h1>
-ESP-SWITCH7 WEEKLY SCHEDULE
+ESP-SWITCH9 WEEKLY SCHEDULE
 </h1>
 
 
@@ -1103,19 +1194,11 @@ $owner_deactivated =
 
 
 /*
- * =====================================================
  * EFFECTIVE STATUS
- * =====================================================
  *
- * User must be active AND owner must be activated.
- *
- * Therefore:
- *
- * User 1 + Owner 0 = OFF
- * User 1 + Owner 1 = ON
- * User 0 + Owner 0 = OFF
- * User 0 + Owner 1 = OFF
- *
+ * User must be ACTIVE
+ * AND
+ * Owner must be ACTIVATED.
  */
 
 $effective_active =
@@ -1211,6 +1294,10 @@ End:
 </div>
 
 
+<!-- =================================================
+     PINS
+     ================================================= -->
+
 <div class="pin-title">
 
 Scheduled D1-D8:
@@ -1243,12 +1330,58 @@ $checked =
 ?>
 
 
-<label class="pin-option">
+<?php if (
+    $owner_deactivated == 1
+): ?>
 
+<!--
+     OWNER DEACTIVATED
+
+     Saved pin remains in database.
+
+     It is displayed OFF.
+
+     Hidden input preserves it when Save
+     is pressed.
+-->
+
+<?php if ($checked): ?>
+
+<input type="hidden"
+       name="pins_<?php echo $p; ?>[]"
+       value="<?php echo $pin_name; ?>">
+
+<?php endif; ?>
+
+
+<label class="pin-option off-state">
+
+<input type="checkbox"
+       disabled>
+
+<span>
+
+<?php echo $pin_name; ?>
+
+</span>
+
+</label>
+
+
+<?php else: ?>
+
+<!--
+     OWNER ACTIVATED
+
+     Normal user pin display.
+-->
+
+<label class="pin-option">
 
 <input type="checkbox"
        name="pins_<?php echo $p; ?>[]"
        value="<?php echo $pin_name; ?>"
+
        <?php
 
        echo $checked
@@ -1257,15 +1390,16 @@ $checked =
 
        ?>>
 
-
 <span>
 
 <?php echo $pin_name; ?>
 
 </span>
 
-
 </label>
+
+
+<?php endif; ?>
 
 
 <?php endfor; ?>
@@ -1275,7 +1409,7 @@ $checked =
 
 
 <!-- =================================================
-     USER SETTING
+     USER PERIOD SETTING
      ================================================= -->
 
 <div class="control-box">
@@ -1288,14 +1422,15 @@ User Period Setting
 </div>
 
 
-<?php
-/*
- * Hidden value preserves the USER'S original setting.
- *
- * This is especially important when owner has
- * deactivated the period.
- */
-?>
+<?php if (
+    $owner_deactivated == 1
+): ?>
+
+<!--
+     OWNER DEACTIVATED.
+
+     Preserve user's original setting.
+-->
 
 <input type="hidden"
        name="period_active_<?php echo $p; ?>"
@@ -1305,18 +1440,6 @@ User Period Setting
 
        ?>">
 
-
-<?php if (
-    $owner_deactivated == 1
-): ?>
-
-<!--
-     Owner has deactivated this period.
-
-     The visible switch is forced OFF and disabled.
-     The hidden field above still preserves the user's
-     original ACTIVE/DEACTIVATED setting.
--->
 
 <label class="switch">
 
@@ -1335,19 +1458,42 @@ OFF — OWNER DEACTIVATED
 </span>
 
 
+<br><br>
+
+
+<strong>
+User setting:
+</strong>
+
+
+<?php
+
+echo $user_active == 1
+    ? "ACTIVE"
+    : "DEACTIVATED";
+
+?>
+
+
 <?php else: ?>
 
 <!--
-     Owner has activated the period.
+     OWNER ACTIVATED.
 
-     The switch now represents the actual user setting.
+     User can change the setting.
 -->
+
+<input type="hidden"
+       name="period_active_<?php echo $p; ?>"
+       value="0">
+
 
 <label class="switch">
 
 <input type="checkbox"
        name="period_active_<?php echo $p; ?>"
        value="1"
+
        <?php
 
        echo $user_active == 1
@@ -1382,9 +1528,6 @@ OFF — DEACTIVATED
 <?php endif; ?>
 
 
-<?php endif; ?>
-
-
 <br><br>
 
 
@@ -1402,14 +1545,17 @@ echo $user_active == 1
 ?>
 
 
+<?php endif; ?>
+
+
 </div>
 
 
 <!-- =================================================
-     EFFECTIVE STATUS
+     ACTUAL ESP STATUS
      ================================================= -->
 
-<div class="status-box">
+<div class="control-box">
 
 
 <div class="status-title">
@@ -1429,7 +1575,6 @@ Actual ESP Status
 
 </span>
 
-
 <?php else: ?>
 
 <span class="status-off">
@@ -1437,7 +1582,6 @@ Actual ESP Status
 ● OFF — PERIOD DEACTIVATED
 
 </span>
-
 
 <?php endif; ?>
 
@@ -1462,14 +1606,14 @@ OWNER DEACTIVATED
 
 The period is forced OFF by the owner.
 
-<br>
+<br><br>
 
 The selected D1-D8 pins and the user's saved
 ACTIVE setting remain stored.
 
-<br>
+<br><br>
 
-The user switch is therefore shown OFF.
+The D1-D8 buttons are therefore shown OFF.
 
 </div>
 
@@ -1506,7 +1650,6 @@ The user setting controls this period.
     class="save-button">
 
 Save
-
 <?php
 
 echo htmlspecialchars(
@@ -1539,4 +1682,4 @@ mysqli_close(
 );
 
 ?>
-```
+
