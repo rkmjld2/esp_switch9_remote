@@ -5,21 +5,33 @@ ESP-SWITCH7
 schedule.php
 ========================================================
 
-Database:
-esp_switch7
+USER SCHEDULE CONTROL
 
-Table:
-weekly_schedule
+The user can change:
 
-Owner control fields:
-owner_deactivated_1
-owner_deactivated_2
-owner_deactivated_3
+    period_active_1
+    period_active_2
+    period_active_3
 
-OWNER RULE:
-If owner_deactivated_X = 1,
-that period is forced OFF regardless of
-period_active_X.
+The user CANNOT change:
+
+    owner_deactivated_1
+    owner_deactivated_2
+    owner_deactivated_3
+
+OWNER DEACTIVATION ALWAYS HAS PRIORITY.
+
+If:
+
+    owner_deactivated = 1
+
+then the period remains OFF even when:
+
+    period_active = 1
+
+Owner activation/deactivation is handled by:
+
+    schedule2.php
 
 ========================================================
 */
@@ -28,7 +40,7 @@ date_default_timezone_set("Asia/Kolkata");
 
 
 /* =====================================================
-   DATABASE CONNECTION
+   DATABASE
    ===================================================== */
 
 $host     = getenv("DB_HOST");
@@ -37,11 +49,19 @@ $password = getenv("DB_PASSWORD");
 $database = getenv("DB_NAME");
 $port     = intval(getenv("DB_PORT"));
 
-if (!$host || !$user || !$database || !$port) {
+
+if (
+    !$host ||
+    !$user ||
+    !$database ||
+    !$port
+) {
     die("Database environment variables are missing.");
 }
 
+
 $conn = mysqli_init();
+
 
 mysqli_ssl_set(
     $conn,
@@ -52,29 +72,47 @@ mysqli_ssl_set(
     NULL
 );
 
-if (!mysqli_real_connect(
-    $conn,
-    $host,
-    $user,
-    $password,
-    $database,
-    $port,
-    NULL,
-    MYSQLI_CLIENT_SSL
-)) {
-    die("Database connection failed: " . mysqli_connect_error());
+
+if (
+    !mysqli_real_connect(
+        $conn,
+        $host,
+        $user,
+        $password,
+        $database,
+        $port,
+        NULL,
+        MYSQLI_CLIENT_SSL
+    )
+) {
+    die(
+        "Database connection failed: " .
+        mysqli_connect_error()
+    );
 }
 
-mysqli_set_charset($conn, "utf8mb4");
+
+mysqli_set_charset(
+    $conn,
+    "utf8mb4"
+);
 
 
 /* =====================================================
-   CONTROLLER ID
+   CONTROLLER
    ===================================================== */
 
-$controller_id = isset($_REQUEST["controller_id"])
+$controller_id =
+    isset($_REQUEST["controller_id"])
     ? trim($_REQUEST["controller_id"])
     : "ESP0001";
+
+
+$controller_sql =
+    mysqli_real_escape_string(
+        $conn,
+        $controller_id
+    );
 
 
 /* =====================================================
@@ -83,7 +121,10 @@ $controller_id = isset($_REQUEST["controller_id"])
 
 function make_datetime($date, $time)
 {
-    if (empty($date) || empty($time)) {
+    if (
+        empty($date) ||
+        empty($time)
+    ) {
         return NULL;
     }
 
@@ -93,22 +134,55 @@ function make_datetime($date, $time)
 
 function sql_datetime($conn, $value)
 {
-    if ($value === NULL || $value === "") {
+    if (
+        $value === NULL ||
+        $value === ""
+    ) {
         return "NULL";
     }
 
     return "'" .
-        mysqli_real_escape_string($conn, $value) .
+        mysqli_real_escape_string(
+            $conn,
+            $value
+        ) .
         "'";
 }
 
 
+function date_value($value)
+{
+    if (empty($value)) {
+        return "";
+    }
+
+    return date(
+        "Y-m-d",
+        strtotime($value)
+    );
+}
+
+
+function time_value($value)
+{
+    if (empty($value)) {
+        return "";
+    }
+
+    return date(
+        "H:i",
+        strtotime($value)
+    );
+}
+
+
 /* =====================================================
-   SAVE SCHEDULE
+   SAVE USER SCHEDULE
    ===================================================== */
 
 $message = "";
 $error   = "";
+
 
 if (
     $_SERVER["REQUEST_METHOD"] === "POST"
@@ -116,31 +190,40 @@ if (
     isset($_POST["save_schedule"])
 ) {
 
-    $id = intval($_POST["id"]);
+    $id =
+        intval($_POST["id"]);
 
 
-    /* ---------------------------------------------
-       PERIOD DATA
-       --------------------------------------------- */
-
-    $periods = array();
+    $periods =
+        array();
 
 
-    for ($p = 1; $p <= 3; $p++) {
+    for (
+        $p = 1;
+        $p <= 3;
+        $p++
+    ) {
 
-        $start_date = isset($_POST["start_date_$p"])
+        $start_date =
+            isset($_POST["start_date_$p"])
             ? trim($_POST["start_date_$p"])
             : "";
 
-        $start_time = isset($_POST["start_time_$p"])
+
+        $start_time =
+            isset($_POST["start_time_$p"])
             ? trim($_POST["start_time_$p"])
             : "";
 
-        $end_date = isset($_POST["end_date_$p"])
+
+        $end_date =
+            isset($_POST["end_date_$p"])
             ? trim($_POST["end_date_$p"])
             : "";
 
-        $end_time = isset($_POST["end_time_$p"])
+
+        $end_time =
+            isset($_POST["end_time_$p"])
             ? trim($_POST["end_time_$p"])
             : "";
 
@@ -151,6 +234,7 @@ if (
                 $start_time
             );
 
+
         $end_datetime =
             make_datetime(
                 $end_date,
@@ -158,9 +242,11 @@ if (
             );
 
 
-        /* -----------------------------------------
-           USER PERIOD ACTIVE
-           ----------------------------------------- */
+        /*
+        -------------------------------------------------
+        USER ACTIVE CONTROL
+        -------------------------------------------------
+        */
 
         $period_active =
             isset($_POST["period_active_$p"])
@@ -168,36 +254,34 @@ if (
             : 0;
 
 
-        /* -----------------------------------------
-           OWNER DEACTIVATION
-
-           1 = Owner deactivated
-           0 = Owner activated
-           ----------------------------------------- */
-
-        $owner_deactivated =
-            isset($_POST["owner_deactivated_$p"])
-            ? intval($_POST["owner_deactivated_$p"])
-            : 0;
-
-
-        /* -----------------------------------------
-           PINS
-           ----------------------------------------- */
+        /*
+        -------------------------------------------------
+        PINS
+        -------------------------------------------------
+        */
 
         $pins = "";
+
 
         if (
             isset($_POST["pins_$p"])
             &&
-            is_array($_POST["pins_$p"])
+            is_array(
+                $_POST["pins_$p"]
+            )
         ) {
 
-            $pin_array = array();
+            $pin_array =
+                array();
 
-            foreach ($_POST["pins_$p"] as $pin) {
 
-                $pin = trim($pin);
+            foreach (
+                $_POST["pins_$p"] as $pin
+            ) {
+
+                $pin =
+                    trim($pin);
+
 
                 if (
                     preg_match(
@@ -205,45 +289,57 @@ if (
                         $pin
                     )
                 ) {
-                    $pin_array[] = $pin;
+
+                    $pin_array[] =
+                        $pin;
                 }
             }
 
-            $pins = implode(",", $pin_array);
+
+            $pins =
+                implode(
+                    ",",
+                    $pin_array
+                );
         }
 
 
-        $periods[$p] = array(
+        $periods[$p] =
+            array(
 
-            "start" =>
-                $start_datetime,
+                "start" =>
+                    $start_datetime,
 
-            "end" =>
-                $end_datetime,
+                "end" =>
+                    $end_datetime,
 
-            "pins" =>
-                $pins,
+                "pins" =>
+                    $pins,
 
-            "active" =>
-                $period_active,
-
-            "owner_deactivated" =>
-                $owner_deactivated
-        );
+                "active" =>
+                    $period_active
+            );
     }
 
 
     /* =================================================
-       VALIDATE EACH PERIOD
+       VALIDATION
        ================================================= */
 
     $valid = true;
 
 
-    for ($p = 1; $p <= 3; $p++) {
+    for (
+        $p = 1;
+        $p <= 3;
+        $p++
+    ) {
 
-        $start = $periods[$p]["start"];
-        $end   = $periods[$p]["end"];
+        $start =
+            $periods[$p]["start"];
+
+        $end =
+            $periods[$p]["end"];
 
 
         if (
@@ -269,10 +365,6 @@ if (
     }
 
 
-    /* =================================================
-       PERIOD ORDER
-       ================================================= */
-
     if ($valid) {
 
         if (
@@ -282,9 +374,13 @@ if (
         ) {
 
             if (
-                strtotime($periods[1]["end"])
+                strtotime(
+                    $periods[1]["end"]
+                )
                 >
-                strtotime($periods[2]["start"])
+                strtotime(
+                    $periods[2]["start"]
+                )
             ) {
 
                 $error =
@@ -305,9 +401,13 @@ if (
         ) {
 
             if (
-                strtotime($periods[2]["end"])
+                strtotime(
+                    $periods[2]["end"]
+                )
                 >
-                strtotime($periods[3]["start"])
+                strtotime(
+                    $periods[3]["start"]
+                )
             ) {
 
                 $error =
@@ -320,146 +420,121 @@ if (
 
 
     /* =================================================
-       UPDATE DATABASE
+       UPDATE ONLY USER FIELDS
        ================================================= */
 
     if ($valid) {
-
-        $controller_sql =
-            mysqli_real_escape_string(
-                $conn,
-                $controller_id
-            );
-
 
         $sql = "
 
         UPDATE weekly_schedule SET
 
-        start_time_1 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[1]["start"]
-        )
-        . ",
+            start_time_1 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[1]["start"]
+            )
+            . ",
 
-        end_time_1 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[1]["end"]
-        )
-        . ",
+            end_time_1 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[1]["end"]
+            )
+            . ",
 
-        pins_output_1 = '"
-        .
-        mysqli_real_escape_string(
-            $conn,
-            $periods[1]["pins"]
-        )
-        . "',
+            pins_output_1 = '"
+            .
+            mysqli_real_escape_string(
+                $conn,
+                $periods[1]["pins"]
+            )
+            . "',
 
-        period_active_1 = "
-        .
-        intval(
-            $periods[1]["active"]
-        )
-        . ",
-
-        owner_deactivated_1 = "
-        .
-        intval(
-            $periods[1]["owner_deactivated"]
-        )
-        . ",
+            period_active_1 = "
+            .
+            intval(
+                $periods[1]["active"]
+            )
+            . ",
 
 
-        start_time_2 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[2]["start"]
-        )
-        . ",
+            start_time_2 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[2]["start"]
+            )
+            . ",
 
-        end_time_2 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[2]["end"]
-        )
-        . ",
+            end_time_2 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[2]["end"]
+            )
+            . ",
 
-        pins_output_2 = '"
-        .
-        mysqli_real_escape_string(
-            $conn,
-            $periods[2]["pins"]
-        )
-        . "',
+            pins_output_2 = '"
+            .
+            mysqli_real_escape_string(
+                $conn,
+                $periods[2]["pins"]
+            )
+            . "',
 
-        period_active_2 = "
-        .
-        intval(
-            $periods[2]["active"]
-        )
-        . ",
-
-        owner_deactivated_2 = "
-        .
-        intval(
-            $periods[2]["owner_deactivated"]
-        )
-        . ",
+            period_active_2 = "
+            .
+            intval(
+                $periods[2]["active"]
+            )
+            . ",
 
 
-        start_time_3 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[3]["start"]
-        )
-        . ",
+            start_time_3 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[3]["start"]
+            )
+            . ",
 
-        end_time_3 =
-        " .
-        sql_datetime(
-            $conn,
-            $periods[3]["end"]
-        )
-        . ",
+            end_time_3 =
+            " .
+            sql_datetime(
+                $conn,
+                $periods[3]["end"]
+            )
+            . ",
 
-        pins_output_3 = '"
-        .
-        mysqli_real_escape_string(
-            $conn,
-            $periods[3]["pins"]
-        )
-        . "',
+            pins_output_3 = '"
+            .
+            mysqli_real_escape_string(
+                $conn,
+                $periods[3]["pins"]
+            )
+            . "',
 
-        period_active_3 = "
-        .
-        intval(
-            $periods[3]["active"]
-        )
-        . ",
-
-        owner_deactivated_3 = "
-        .
-        intval(
-            $periods[3]["owner_deactivated"]
-        )
-        . "
+            period_active_3 = "
+            .
+            intval(
+                $periods[3]["active"]
+            )
+            . "
 
         WHERE id = $id
-
-        AND controller_id =
-        '$controller_sql'
+        AND controller_id = '$controller_sql'
         ";
 
 
-        if (mysqli_query($conn, $sql)) {
+        if (
+            mysqli_query(
+                $conn,
+                $sql
+            )
+        ) {
 
             $message =
                 "Schedule saved successfully.";
@@ -467,8 +542,7 @@ if (
         } else {
 
             $error =
-                "Database error: "
-                .
+                "Database error: " .
                 mysqli_error($conn);
         }
     }
@@ -476,15 +550,8 @@ if (
 
 
 /* =====================================================
-   GET WEEKLY SCHEDULE
+   READ SCHEDULE
    ===================================================== */
-
-$controller_sql =
-    mysqli_real_escape_string(
-        $conn,
-        $controller_id
-    );
-
 
 $sql = "
 
@@ -531,48 +598,18 @@ ORDER BY FIELD(
 ";
 
 
-$result = mysqli_query(
-    $conn,
-    $sql
-);
+$result =
+    mysqli_query(
+        $conn,
+        $sql
+    );
 
 
 if (!$result) {
 
     die(
-        "Schedule query failed: "
-        .
+        "Schedule query failed: " .
         mysqli_error($conn)
-    );
-}
-
-
-/* =====================================================
-   HTML DATE/TIME FORMAT
-   ===================================================== */
-
-function date_value($value)
-{
-    if (empty($value)) {
-        return "";
-    }
-
-    return date(
-        "Y-m-d",
-        strtotime($value)
-    );
-}
-
-
-function time_value($value)
-{
-    if (empty($value)) {
-        return "";
-    }
-
-    return date(
-        "H:i",
-        strtotime($value)
     );
 }
 
@@ -590,29 +627,37 @@ function time_value($value)
       content="width=device-width, initial-scale=1.0">
 
 <title>
-ESP-SWITCH7 Weekly Schedule
+ESP-SWITCH7 Schedule
 </title>
-
 
 <style>
 
+* {
+    box-sizing: border-box;
+}
+
 body {
-
-    font-family: Arial, sans-serif;
-
-    background: #f2f2f2;
 
     margin: 0;
 
-    padding: 15px;
-}
+    padding: 20px;
 
+    font-family: Arial, sans-serif;
+
+    background:
+        linear-gradient(
+            135deg,
+            #e3f2fd,
+            #f3e5f5
+        );
+}
 
 h1 {
 
     text-align: center;
-}
 
+    color: #17365d;
+}
 
 .controller {
 
@@ -622,55 +667,77 @@ h1 {
 
     font-weight: bold;
 
+    color: #17365d;
+
     margin-bottom: 20px;
 }
 
-
 .message {
+
+    max-width: 1000px;
+
+    margin: 0 auto 15px;
+
+    padding: 13px;
 
     background: #d4edda;
 
     color: #155724;
 
-    padding: 12px;
+    border-radius: 8px;
 
-    margin-bottom: 15px;
+    text-align: center;
 
-    border-radius: 6px;
+    font-weight: bold;
 }
 
-
 .error {
+
+    max-width: 1000px;
+
+    margin: 0 auto 15px;
+
+    padding: 13px;
 
     background: #f8d7da;
 
     color: #721c24;
 
-    padding: 12px;
+    border-radius: 8px;
 
-    margin-bottom: 15px;
+    text-align: center;
 
-    border-radius: 6px;
+    font-weight: bold;
 }
-
 
 .day-box {
 
+    max-width: 1100px;
+
+    margin: 0 auto 25px;
+
+    padding: 18px;
+
     background: white;
 
-    margin-bottom: 25px;
-
-    padding: 15px;
-
-    border-radius: 10px;
+    border-radius: 14px;
 
     box-shadow:
-        0 2px 6px
-        rgba(0,0,0,0.15);
+        0 4px 12px
+        rgba(0,0,0,0.14);
 }
 
-
 .day-title {
+
+    padding: 12px;
+
+    border-radius: 8px;
+
+    background: #17365d;
+
+    color: white;
+
+    text-align: center;
 
     font-size: 24px;
 
@@ -679,34 +746,29 @@ h1 {
     margin-bottom: 15px;
 }
 
-
 .period {
 
-    border: 1px solid #ccc;
-
-    padding: 15px;
+    padding: 16px;
 
     margin-bottom: 15px;
 
-    border-radius: 8px;
-}
+    border: 2px solid #d0d7de;
 
+    border-radius: 10px;
+
+    background: #f8fbff;
+}
 
 .period-title {
 
-    font-size: 20px;
+    font-size: 21px;
 
     font-weight: bold;
 
-    margin-bottom: 10px;
+    color: #17365d;
+
+    margin-bottom: 12px;
 }
-
-
-label {
-
-    font-weight: bold;
-}
-
 
 input[type="date"],
 input[type="time"] {
@@ -714,14 +776,16 @@ input[type="time"] {
     padding: 7px;
 
     margin: 4px;
-}
 
+    border: 1px solid #aaa;
+
+    border-radius: 5px;
+}
 
 .pin-area {
 
-    margin-top: 12px;
+    margin-top: 15px;
 }
-
 
 .pin {
 
@@ -730,52 +794,47 @@ input[type="time"] {
     margin: 4px;
 }
 
-
 .pin input {
 
     display: none;
 }
 
-
 .pin span {
 
     display: inline-block;
 
-    padding: 9px 13px;
+    padding: 9px 14px;
 
-    border: 2px solid #888;
+    background: #e9ecef;
 
-    border-radius: 6px;
+    border: 2px solid #adb5bd;
 
-    background: #eee;
+    border-radius: 7px;
 
     cursor: pointer;
 
     font-weight: bold;
 }
 
-
 .pin input:checked + span {
 
-    background: #28a745;
+    background: #198754;
 
     color: white;
 
-    border-color: #28a745;
+    border-color: #198754;
 }
-
 
 .active-area {
 
-    margin-top: 12px;
+    margin-top: 15px;
 
-    padding: 10px;
+    padding: 12px;
 
-    background: #eef6ff;
+    background: #e7f1ff;
 
-    border-radius: 6px;
+    border-radius: 8px;
 }
-
 
 .owner-area {
 
@@ -783,81 +842,83 @@ input[type="time"] {
 
     padding: 12px;
 
+    border-radius: 8px;
+
     background: #fff3cd;
 
-    border: 1px solid #ffeeba;
-
-    border-radius: 6px;
+    border: 1px solid #ffe69c;
 }
 
+.owner-lock {
 
-.owner-area label {
+    margin-top: 10px;
 
-    color: #856404;
-}
+    padding: 10px;
 
+    border-radius: 7px;
 
-.status-active {
+    background: #f8d7da;
 
-    color: green;
+    color: #842029;
 
     font-weight: bold;
 }
 
+.active-text {
 
-.status-deactivated {
-
-    color: red;
+    color: #198754;
 
     font-weight: bold;
 }
 
+.off-text {
+
+    color: #dc3545;
+
+    font-weight: bold;
+}
 
 .save-button {
 
-    background: #007bff;
-
-    color: white;
-
-    border: none;
+    margin-top: 10px;
 
     padding: 12px 25px;
 
+    border: 0;
+
+    border-radius: 7px;
+
+    background: #0d6efd;
+
+    color: white;
+
     font-size: 16px;
 
-    border-radius: 6px;
+    font-weight: bold;
 
     cursor: pointer;
 }
 
-
 .save-button:hover {
 
-    background: #0056b3;
+    background: #0b5ed7;
 }
 
 </style>
 
 </head>
 
-
 <body>
-
 
 <h1>
 ESP-SWITCH7 WEEKLY SCHEDULE
 </h1>
 
-
 <div class="controller">
 
 Controller:
 <?php
-
-echo htmlspecialchars(
-    $controller_id
-);
-
+echo htmlspecialchars($controller_id);
 ?>
 
 </div>
@@ -868,11 +929,7 @@ echo htmlspecialchars(
 <div class="message">
 
 <?php
-
-echo htmlspecialchars(
-    $message
-);
-
+echo htmlspecialchars($message);
 ?>
 
 </div>
@@ -885,11 +942,7 @@ echo htmlspecialchars(
 <div class="error">
 
 <?php
-
-echo htmlspecialchars(
-    $error
-);
-
+echo htmlspecialchars($error);
 ?>
 
 </div>
@@ -902,18 +955,14 @@ echo htmlspecialchars(
     mysqli_fetch_assoc($result)
 ): ?>
 
-
 <div class="day-box">
-
 
 <div class="day-title">
 
 <?php
-
 echo htmlspecialchars(
     $row["day_week"]
 );
-
 ?>
 
 </div>
@@ -921,31 +970,20 @@ echo htmlspecialchars(
 
 <form method="POST">
 
-
 <input type="hidden"
        name="save_schedule"
        value="1">
 
-
 <input type="hidden"
        name="id"
        value="<?php
-
-       echo intval(
-           $row["id"]
-       );
-
+       echo intval($row["id"]);
        ?>">
-
 
 <input type="hidden"
        name="controller_id"
        value="<?php
-
-       echo htmlspecialchars(
-           $controller_id
-       );
-
+       echo htmlspecialchars($controller_id);
        ?>">
 
 
@@ -955,103 +993,60 @@ echo htmlspecialchars(
     $p++
 ): ?>
 
-
 <?php
 
-$start_field =
-    "start_time_" . $p;
+$start =
+    $row["start_time_" . $p];
 
-$end_field =
-    "end_time_" . $p;
+$end =
+    $row["end_time_" . $p];
 
-$pins_field =
-    "pins_output_" . $p;
-
-$active_field =
-    "period_active_" . $p;
-
-$owner_field =
-    "owner_deactivated_" . $p;
-
-
-$start_value =
-    $row[$start_field];
-
-$end_value =
-    $row[$end_field];
-
-
-$pins_value =
+$pins =
     trim(
-        $row[$pins_field]
+        $row["pins_output_" . $p]
     );
 
-
-$period_active =
+$active =
     intval(
-        $row[$active_field]
+        $row["period_active_" . $p]
     );
-
 
 $owner_deactivated =
     intval(
-        $row[$owner_field]
+        $row["owner_deactivated_" . $p]
     );
 
-
-$selected_pins =
-    array();
-
-
-if ($pins_value != "") {
-
-    $selected_pins =
-        explode(
-            ",",
-            $pins_value
-        );
-}
+$selected =
+    $pins == ""
+    ? array()
+    : explode(",", $pins);
 
 ?>
 
 
 <div class="period">
 
-
 <div class="period-title">
-
-Period
-<?php echo $p; ?>
-
+Period <?php echo $p; ?>
 </div>
 
 
 <div>
 
-<label>
+<strong>
 Start:
-</label>
-
+</strong>
 
 <input type="date"
        name="start_date_<?php echo $p; ?>"
        value="<?php
-
-       echo date_value(
-           $start_value
-       );
-
+       echo date_value($start);
        ?>">
-
 
 <input type="time"
        name="start_time_<?php echo $p; ?>"
        value="<?php
-
-       echo time_value(
-           $start_value
-       );
-
+       echo time_value($start);
        ?>">
 
 </div>
@@ -1059,30 +1054,20 @@ Start:
 
 <div>
 
-<label>
+<strong>
 End:
-</label>
-
+</strong>
 
 <input type="date"
        name="end_date_<?php echo $p; ?>"
        value="<?php
-
-       echo date_value(
-           $end_value
-       );
-
+       echo date_value($end);
        ?>">
-
 
 <input type="time"
        name="end_time_<?php echo $p; ?>"
        value="<?php
-
-       echo time_value(
-           $end_value
-       );
-
+       echo time_value($end);
        ?>">
 
 </div>
@@ -1091,11 +1076,10 @@ End:
 <div class="pin-area">
 
 <strong>
-Select Outputs:
+D1-D8 Outputs
 </strong>
 
-<br>
-<br>
+<br><br>
 
 
 <?php for (
@@ -1104,204 +1088,122 @@ Select Outputs:
     $d++
 ): ?>
 
-
 <?php
 
 $pin_name =
     "D" . $d;
 
-
 $checked =
     in_array(
         $pin_name,
-        $selected_pins
+        $selected
     );
 
 ?>
 
-
 <label class="pin">
-
 
 <input type="checkbox"
        name="pins_<?php echo $p; ?>[]"
        value="<?php echo $pin_name; ?>"
        <?php
-
        echo $checked
            ? "checked"
            : "";
-
        ?>>
 
-
 <span>
-
 <?php echo $pin_name; ?>
-
 </span>
 
-
 </label>
-
 
 <?php endfor; ?>
 
-
 </div>
 
-
-<!-- =========================================
-     USER PERIOD CONTROL
-     ========================================= -->
 
 <div class="active-area">
 
-
 <input type="hidden"
        name="period_active_<?php echo $p; ?>"
        value="0">
 
-
 <label>
-
 
 <input type="checkbox"
        name="period_active_<?php echo $p; ?>"
        value="1"
-
        <?php
-
-       echo (
-           $period_active == 1
-       )
-       ? "checked"
-       : "";
-
+       echo $active == 1
+           ? "checked"
+           : "";
        ?>>
-
 
 User Period Active
 
-
 </label>
 
-
-<br>
+<br><br>
 
 
 <?php if (
-    $period_active == 1
+    $active == 1
 ): ?>
 
-<span class="status-active">
-
-Period is ACTIVE
-
+<span class="active-text">
+USER STATUS: ACTIVE
 </span>
 
 <?php else: ?>
 
-<span class="status-deactivated">
-
-Period is DEACTIVATED
-
+<span class="off-text">
+USER STATUS: DEACTIVATED
 </span>
 
 <?php endif; ?>
 
-
 </div>
-
-
-<!-- =========================================
-     OWNER CONTROL
-     ========================================= -->
-
-<div class="owner-area">
-
-
-<input type="hidden"
-       name="owner_deactivated_<?php echo $p; ?>"
-       value="0">
-
-
-<label>
-
-
-<input type="checkbox"
-       name="owner_deactivated_<?php echo $p; ?>"
-       value="1"
-
-       <?php
-
-       echo (
-           $owner_deactivated == 1
-       )
-       ? "checked"
-       : "";
-
-       ?>>
-
-
-OWNER DEACTIVATE THIS PERIOD
-
-
-</label>
-
-
-<br>
-<br>
 
 
 <?php if (
     $owner_deactivated == 1
 ): ?>
 
-<span class="status-deactivated">
+<div class="owner-lock">
 
 OWNER DEACTIVATED
 
-</span>
+<br><br>
+
+The owner has locked this period OFF.
+
+Activating the user period here will NOT
+turn the ESP output ON.
+
+The owner must activate this period from
+<strong>schedule2.php</strong>.
+
+</div>
 
 <?php else: ?>
 
-<span class="status-active">
-
-OWNER ACTIVATED
-
-</span>
-
-<?php endif; ?>
-
-
-</div>
-
-
-<?php if (
-    $owner_deactivated == 1
-): ?>
-
-
-<p class="status-deactivated">
+<div class="owner-area">
 
 <strong>
-
-OWNER DEACTIVATION HAS PRIORITY.
-
-This period will remain OFF even
-when the user period is Active.
-
+OWNER STATUS:
 </strong>
 
-</p>
+<span class="active-text">
+OWNER ACTIVATED
+</span>
 
+</div>
 
 <?php endif; ?>
 
 
 </div>
-
 
 <?php endfor; ?>
 
@@ -1312,11 +1214,9 @@ when the user period is Active.
 
 Save
 <?php
-
 echo htmlspecialchars(
     $row["day_week"]
 );
-
 ?>
 
 </button>
@@ -1324,9 +1224,7 @@ echo htmlspecialchars(
 
 </form>
 
-
 </div>
-
 
 <?php endwhile; ?>
 
@@ -1334,7 +1232,6 @@ echo htmlspecialchars(
 </body>
 
 </html>
-
 
 <?php
 
