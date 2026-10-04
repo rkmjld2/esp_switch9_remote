@@ -7,7 +7,7 @@
 
 $base_url = "https://esp-switch9-remote.onrender.com";
 
-$display_url = $base_url . "/display_schedule_remote.php";
+$display_url = $base_url . "/display_schedule.php";
 
 $qr_url =
     "https://api.qrserver.com/v1/create-qr-code/"
